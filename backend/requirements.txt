@@ -1,0 +1,4 @@
+# --- Core API ---
+fastapi
+uvicorn[standard]
+python-dotenv
