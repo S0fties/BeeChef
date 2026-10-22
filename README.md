@@ -49,6 +49,10 @@ Mac/Linux: source venv/bin/activate
 
 pip install -r requirements.txt
 
+# (Optional) For development and testing:
+pip install -r requirements-dev.txt
+pytest
+
 uvicorn app.main:app --reload
 ```
 
