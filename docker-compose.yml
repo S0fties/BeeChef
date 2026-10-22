@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: beechef_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beechef
+      POSTGRES_PASSWORD: ronaldo
+      POSTGRES_DB: beechef_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beechef -d beechef_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
