@@ -16,6 +16,7 @@ BeeChef is an AI-powered smart kitchen application that helps households track i
 Before running the project, make sure you have the following installed:
 * **Node.js:** Download and install the latest LTS version from [nodejs.org](https://nodejs.org/en/download).
 * **Python:** Version 3.8 or higher.
+* **Docker Desktop:** Required for the PostgreSQL database. Make sure it is running. Download from [docker.com](https://www.docker.com/products/docker-desktop/).
 
 ## Quick Start
 
@@ -25,7 +26,18 @@ git clone https://github.com/S0fties/BeeChef.git
 cd BeeChef
 ```
 
-### 1. Backend Setup
+### 1. Database Setup
+From the project root directory, start PostgreSQL with Docker:
+```bash
+docker compose up -d
+```
+
+Check that the container is running and healthy:
+```bash
+docker compose ps
+```
+
+### 2. Backend Setup
 Open a terminal in the root directory:
 
 ```bash
@@ -40,7 +52,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-### 2. Frontend Setup
+### 3. Frontend Setup
 Open a **new** terminal tab:
 ```bash
 cd frontend
