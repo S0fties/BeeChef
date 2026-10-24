@@ -5,7 +5,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
 
     model_config = SettingsConfigDict(
-        env_file=(".env.example", ".env"), 
+        env_file=(".env"), 
         extra="ignore"
     )
 
