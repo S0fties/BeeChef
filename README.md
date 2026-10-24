@@ -53,8 +53,24 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 pytest
 
+Create your local environment file (it is not committed to git):
+
+* **Windows (CMD):** `copy .env.example .env`
+* **Mac/Linux:** `cp .env.example .env`
+
 uvicorn app.main:app --reload
 ```
+
+### Database Migrations
+Database tables are managed with [Alembic](https://alembic.sqlalchemy.org/). Run these from the `backend` directory with the virtual environment activated and the database running:
+
+```bash
+alembic upgrade head                          # apply all migrations
+alembic current                               # show the current migration
+alembic revision --autogenerate -m "message"  # create a migration after changing models
+```
+
+Run `alembic upgrade head` after every `git pull` that adds new migration files.
 
 ### 3. Frontend Setup
 Open a **new** terminal tab:
