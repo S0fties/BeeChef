@@ -44,5 +44,17 @@ class HouseholdMember(Base):
 
     # The member's role in this household (owner or member).
     role: Mapped[HouseholdRole] = mapped_column(
-        SAEnum(HouseholdRole, name="household_role")
+        SAEnum(
+            HouseholdRole,
+            name="household_role",
+            # By default SQLAlchemy stores the Python constant NAME ("OWNER").
+            # values_callable makes it store the VALUE ("owner") instead, which
+            # is what the rest of the system expects. It receives the Enum class
+            # and returns the list of strings that the database should accept.
+            values_callable=lambda enum_class: [role.value for role in enum_class],
+        ),
+        # Python-side default: when code creates a membership without a role,
+        # SQLAlchemy fills in "member" before the INSERT. We default to the
+        # least privileged role so a forgotten value never grants ownership.
+        default=HouseholdRole.MEMBER,
     )
