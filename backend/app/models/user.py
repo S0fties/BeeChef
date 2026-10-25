@@ -26,7 +26,9 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     # The e-mail address the user logs in with.
-    email: Mapped[str] = mapped_column(String(255))
+    # unique=True makes the database itself reject a second account with the
+    # same e-mail, so the rule holds even if application code forgets to check.
+    email: Mapped[str] = mapped_column(String(255), unique=True)
 
     # We never store the real password, only its irreversible hash.
     # The authentication feature will be responsible for creating it.
