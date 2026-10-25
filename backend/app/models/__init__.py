@@ -6,6 +6,7 @@ and the tests use. A model that is not imported here is invisible to them.
 """
 
 from app.models.household import Household
+from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.user import User
 
-__all__ = ["Household", "User"]
+__all__ = ["Household", "HouseholdMember", "HouseholdRole", "User"]
