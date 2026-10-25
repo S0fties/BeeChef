@@ -3,7 +3,7 @@
 import enum
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -32,6 +32,20 @@ class HouseholdMember(Base):
     # Name of the table that will be created in PostgreSQL.
     __tablename__ = "household_members"
 
+    # Rules that involve more than one column are declared at table level.
+    # This UniqueConstraint says: the PAIR (user_id, household_id) may appear
+    # only once, so a user cannot be added to the same household twice.
+    # The same user can still join other households, and the same household
+    # can still have other users. The explicit name makes database error
+    # messages and future migrations easier to read.
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "household_id",
+            name="uq_household_members_user_household",
+        ),
+    )
+
     # Primary key generated automatically by PostgreSQL (1, 2, 3, ...).
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -40,7 +54,13 @@ class HouseholdMember(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
 
     # Foreign key: the id of a row in the "households" table.
-    household_id: Mapped[int] = mapped_column(ForeignKey("households.id"))
+    # ondelete="CASCADE": when a household is deleted, PostgreSQL itself deletes
+    # every membership row that points to it. Without this, the database would
+    # refuse to delete a household that still has members, and a leftover
+    # membership would point to a household that no longer exists.
+    household_id: Mapped[int] = mapped_column(
+        ForeignKey("households.id", ondelete="CASCADE")
+    )
 
     # The member's role in this household (owner or member).
     role: Mapped[HouseholdRole] = mapped_column(

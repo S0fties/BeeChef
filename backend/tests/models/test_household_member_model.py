@@ -1,6 +1,8 @@
 """Tests for the HouseholdMember model."""
 
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 from app.models import Household, HouseholdMember, HouseholdRole, User
 
@@ -67,3 +69,50 @@ def test_role_defaults_to_member(db_session):
 
     db_session.refresh(membership)
     assert membership.role == HouseholdRole.MEMBER
+
+
+def test_user_cannot_join_the_same_household_twice(db_session):
+    """The pair (user, household) may exist only once in household_members."""
+    user, household = _create_user_and_household(db_session)
+    db_session.add(HouseholdMember(user_id=user.id, household_id=household.id))
+    db_session.commit()
+
+    # Exactly the same pair again: the database must reject it.
+    db_session.add(HouseholdMember(user_id=user.id, household_id=household.id))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_membership_requires_an_existing_user(db_session):
+    """A membership cannot point to a user id that does not exist.
+
+    This protection already works thanks to the ForeignKey, so this test is
+    expected to pass immediately. It guards the rule against future changes.
+    """
+    household = Household(name="Softies House")
+    db_session.add(household)
+    db_session.commit()
+
+    # 999_999 is far above any id the test database has generated so far.
+    db_session.add(HouseholdMember(user_id=999_999, household_id=household.id))
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+
+
+def test_deleting_a_household_deletes_its_memberships_but_not_users(db_session):
+    """Memberships die with their household; the users themselves stay."""
+    user, household = _create_user_and_household(db_session)
+    db_session.add(HouseholdMember(user_id=user.id, household_id=household.id))
+    db_session.commit()
+    household_id = household.id
+
+    db_session.delete(household)
+    db_session.commit()
+
+    # Count the leftover membership rows with plain SQL (what is really stored).
+    remaining = db_session.execute(
+        text("SELECT COUNT(*) FROM household_members WHERE household_id = :id"),
+        {"id": household_id},
+    ).scalar_one()
+    assert remaining == 0
+    assert db_session.get(User, user.id) is not None
