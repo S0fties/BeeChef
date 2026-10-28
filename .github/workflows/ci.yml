@@ -15,6 +15,29 @@ jobs:
     name: Backend Tests (pytest)
     runs-on: ubuntu-latest
 
+    # Throwaway PostgreSQL instance that lives only for this job.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beechef
+          POSTGRES_PASSWORD: beechef
+          # tests/models/conftest.py appends "_test" to the database name
+          # from DATABASE_URL, so the tests connect to this database.
+          POSTGRES_DB: beechef_db_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U beechef -d beechef_db_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Not a secret: credentials of the ephemeral CI database above.
+      # "+psycopg" selects the psycopg v3 driver from requirements.txt.
+      DATABASE_URL: postgresql+psycopg://beechef:beechef@localhost:5432/beechef_db
+
     defaults:
       run:
         working-directory: backend
@@ -36,8 +59,6 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run pytest
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: pytest
 
   frontend:
