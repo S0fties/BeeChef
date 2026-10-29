@@ -38,28 +38,39 @@ docker compose ps
 ```
 
 ### 2. Backend Setup
-Open a terminal in the root directory:
+From the repository root, create and activate a Python virtual environment:
 
 ```bash
 cd backend
 python -m venv venv
+```
 
-Windows: venv\Scripts\activate
-Mac/Linux: source venv/bin/activate
+Activate the virtual environment:
 
-pip install -r requirements.txt
+* **Windows:** `venv\Scripts\activate`
+* **Mac/Linux:** `source venv/bin/activate`
 
-# (Optional) For development and testing:
-pip install -r requirements-dev.txt
-pytest
+Install the backend and test dependencies:
 
-Create your local environment file (it is not committed to git):
+```bash
+python -m pip install -r requirements-dev.txt
+```
 
-* **Windows (CMD):** `copy .env.example .env`
+Create your local environment file from the example:
+
+* **Windows:** `copy .env.example .env`
 * **Mac/Linux:** `cp .env.example .env`
 
-uvicorn app.main:app --reload
+Edit `backend/.env` and set both database URLs. With the default Docker Compose
+credentials, use:
+
+```bash
+DATABASE_URL=postgresql+psycopg://beechef:ronaldo@localhost:5432/beechef_db
+TEST_DATABASE_URL=postgresql+psycopg://beechef:ronaldo@localhost:5432/beechef_db_test
 ```
+
+Keep the two URLs pointed at different databases. The application and Alembic use
+`DATABASE_URL`; pytest uses only `TEST_DATABASE_URL`.
 
 ### Database Migrations
 Database tables are managed with [Alembic](https://alembic.sqlalchemy.org/). Run these from the `backend` directory with the virtual environment activated and the database running:
@@ -71,6 +82,26 @@ alembic revision --autogenerate -m "message"  # create a migration after changin
 ```
 
 Run `alembic upgrade head` after every `git pull` that adds new migration files.
+
+### Backend Tests
+From the `backend` directory, with the virtual environment activated and PostgreSQL
+running, run the complete test suite:
+
+```bash
+python -m pytest
+```
+
+Pytest runs all tests under `backend/tests` against `TEST_DATABASE_URL` and resets
+its tables before each run; each test's data is rolled back afterward. Set it to a
+separate database locally. In CI, `DATABASE_URL` and `TEST_DATABASE_URL` both point
+to the same disposable test database.
+
+### Run the Backend
+From the `backend` directory, with the virtual environment activated:
+
+```bash
+uvicorn app.main:app --reload
+```
 
 ### 3. Frontend Setup
 Open a **new** terminal tab:
