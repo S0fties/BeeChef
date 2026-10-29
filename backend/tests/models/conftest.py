@@ -25,12 +25,17 @@ def engine():
     """Create the test database engine and the tables, once per test run."""
     dev_url = make_url(settings.DATABASE_URL)
     # beechef_db -> beechef_db_test: never run tests against the dev database.
-    test_url = dev_url.set(database=f"{dev_url.database}_test")
+    db_name = (
+        dev_url.database 
+        if dev_url.database.endswith("_test") 
+        else f"{dev_url.database}_test"
+    )
+    test_url = dev_url.set(database=db_name)
     engine = create_engine(test_url)
 
-    Base.metadata.create_all(engine)   # CREATE TABLE for every registered model
+    
     yield engine                       # all tests run at this point
-    Base.metadata.drop_all(engine)     # remove the tables when the run is over
+    
     engine.dispose()
 
 
