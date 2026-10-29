@@ -69,11 +69,3 @@ who want to collaboratively manage kitchen inventory, reduce daily decision fati
 | Codebase                          | 25.12.2026 23:59  |
 | Demo                              | 26.12.2026 23:59  |
 | Presentation                      | 28.12.2026 23:59  |
-	
-	
-	
-	
-	
-	
-	
-	
