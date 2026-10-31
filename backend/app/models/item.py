@@ -36,7 +36,7 @@ class Item(Base):
     # and auto-generated serial IDs.
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # Unique display name of the item (e.g. "Domates", "Dana Kıyma", "Air Fryer").
+    # Unique display name of the item (e.g. "Tomatoes", "Minced Beef", "Air Fryer").
     name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
 
     # High-level item type ("ingredient" or "appliance").

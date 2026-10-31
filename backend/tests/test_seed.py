@@ -11,7 +11,7 @@ def test_seed_items_catalog_can_be_created_and_read(db_session):
     saved_item = db_session.get(Item, 71001)
     assert seeded_count > 0
     assert saved_item is not None
-    assert saved_item.name == "Dana Kıyma"
+    assert saved_item.name == "Minced Beef"
 
 
 def test_seed_items_catalog_is_idempotent(db_session):
@@ -28,4 +28,4 @@ def test_seed_all_runs_without_errors(db_session):
 
     saved_item = db_session.get(Item, 11001)
     assert saved_item is not None
-    assert saved_item.name == "Limon"
+    assert saved_item.name == "Lemon"

@@ -19,7 +19,7 @@ def _create_household_and_items(db_session):
     household = Household(name="Softies House")
     ingredient = Item(
         id=71001,
-        name="Dana Kıyma",
+        name="Minced Beef",
         item_type=ItemType.INGREDIENT,
         category="MEAT",
         subcategory="BEEF",

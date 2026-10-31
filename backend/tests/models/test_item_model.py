@@ -15,7 +15,7 @@ CATALOG_CSV_PATH = Path(__file__).resolve().parents[2] / "data" / "items_catalog
 def test_item_can_be_created(db_session):
     """A catalog item can be inserted into the database and receives an id and timestamp."""
     item = Item(
-        name="Domates",
+        name="Tomatoes",
         item_type=ItemType.INGREDIENT,
         category="VEGETABLE",
         subcategory="FRUITING_VEGETABLES",
@@ -33,7 +33,7 @@ def test_item_can_be_read(db_session):
     """A saved catalog item with a 5-digit hierarchical id can be read back."""
     item = Item(
         id=71001,
-        name="Dana Kıyma",
+        name="Minced Beef",
         item_type=ItemType.INGREDIENT,
         category="MEAT",
         subcategory="BEEF",
@@ -72,7 +72,7 @@ def test_item_type_is_stored_as_lowercase_value(db_session):
     """The database must store 'ingredient' / 'appliance', not the uppercase name."""
     item = Item(
         id=11001,
-        name="Limon",
+        name="Lemon",
         item_type=ItemType.INGREDIENT,
         category="FRUIT",
         subcategory="CITRUS",
@@ -91,7 +91,7 @@ def test_item_type_is_stored_as_lowercase_value(db_session):
 def test_item_type_defaults_to_ingredient(db_session):
     """An item created without an explicit item_type defaults to INGREDIENT."""
     item = Item(
-        name="Patates",
+        name="Potatoes",
         category="VEGETABLE",
         subcategory="ROOT_VEGETABLES",
         default_unit="kg",
@@ -108,7 +108,7 @@ def test_item_name_must_be_unique(db_session):
     db_session.add(
         Item(
             id=23001,
-            name="Domates",
+            name="Tomatoes",
             category="VEGETABLE",
             subcategory="FRUITING_VEGETABLES",
             default_unit="kg",
@@ -119,7 +119,7 @@ def test_item_name_must_be_unique(db_session):
     db_session.add(
         Item(
             id=23099,
-            name="Domates",
+            name="Tomatoes",
             category="VEGETABLE",
             subcategory="FRUITING_VEGETABLES",
             default_unit="kg",
