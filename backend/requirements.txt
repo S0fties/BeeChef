@@ -3,6 +3,9 @@ fastapi
 uvicorn[standard]
 python-dotenv
 pydantic-settings
+pydantic[email]
+bcrypt
+pyjwt
 
 # --- Database ---
 sqlalchemy
