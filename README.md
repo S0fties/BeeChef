@@ -111,3 +111,16 @@ npm install
 
 npm run dev
 ```
+
+### Frontend Tests
+From the `frontend` directory, run the tests once:
+
+```bash
+npm run test
+```
+
+To keep Vitest running in watch mode during development:
+
+```bash
+npm run test:watch
+```
