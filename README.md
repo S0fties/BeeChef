@@ -83,6 +83,15 @@ alembic revision --autogenerate -m "message"  # create a migration after changin
 
 Run `alembic upgrade head` after every `git pull` that adds new migration files.
 
+### Database Seeding
+Populate the shared catalog with standard ingredients and appliances from `backend/data/items_catalog.csv`:
+
+```bash
+python -m app.db.seed
+```
+
+This command is safe to run multiple times (*idempotent*). Run it after `alembic upgrade head` on a fresh database or whenever seed catalog files are updated.
+
 ### Backend Tests
 From the `backend` directory, with the virtual environment activated and PostgreSQL
 running, run the complete test suite:
