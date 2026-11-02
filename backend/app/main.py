@@ -1,10 +1,23 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
+from app.api.routes import auth
 from app.db.session import get_db
 
 app = FastAPI(title="BeeChef API")
+
+app.include_router(auth.router)
+
+# FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
+@app.exception_handler(RequestValidationError)
+async def validation_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=400, content={"detail": jsonable_encoder(exc.errors())}
+    )
 
 @app.get("/")
 def read_root():
