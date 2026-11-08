@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -9,6 +10,13 @@ from app.api.routes import auth
 from app.db.session import get_db
 
 app = FastAPI(title="BeeChef API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Vite dev server
+    allow_methods=["*"],
+    allow_headers=["*"],  # needed for the Authorization header
+)
 
 app.include_router(auth.router)
 
