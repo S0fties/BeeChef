@@ -108,61 +108,8 @@ function buildQuery(params = {}) {
   return queryString ? `?${queryString}` : ''
 }
 
-export async function fetchCatalogItems(params = {}) {
-  const query = buildQuery(params)
-  const response = await fetch(`${API_BASE}/items${query}`, {
-    method: 'GET',
-    headers: buildHeaders(),
-  })
-  return handleResponse(response)
-}
-
-export async function createCatalogItem(payload) {
-  const response = await fetch(`${API_BASE}/items`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify(payload),
-  })
-  return handleResponse(response)
-}
-
-export async function fetchInventoryEntries(params = {}) {
-  const query = buildQuery(params)
-  const response = await fetch(`${API_BASE}/inventory${query}`, {
-    method: 'GET',
-    headers: buildHeaders(),
-  })
-  return handleResponse(response)
-}
-
-export async function createInventoryEntry(payload) {
-  const response = await fetch(`${API_BASE}/inventory`, {
-    method: 'POST',
-    headers: buildHeaders(),
-    body: JSON.stringify(payload),
-  })
-  return handleResponse(response)
-}
-
-export async function updateInventoryEntry(entryId, payload) {
-  const response = await fetch(`${API_BASE}/inventory/${entryId}`, {
-    method: 'PATCH',
-    headers: buildHeaders(),
-    body: JSON.stringify(payload),
-  })
-  return handleResponse(response)
-}
-
-export async function deleteInventoryEntry(entryId) {
-  const response = await fetch(`${API_BASE}/inventory/${entryId}`, {
-    method: 'DELETE',
-    headers: buildHeaders(),
-  })
-  return handleResponse(response)
-}
-
 export async function quickAuthenticate({
-  email = 'chef@beechef.local',
+  email = 'chef@beechef.com',
   password = 'beechef-demo-password',
   full_name = 'BeeChef Demo User',
 } = {}) {
@@ -191,5 +138,78 @@ export async function quickAuthenticate({
     setStoredToken(data.access_token)
   }
   return data
+}
+
+async function fetchWithAuth(url, options = {}) {
+  if (!getStoredToken()) {
+    try {
+      await quickAuthenticate()
+    } catch {
+      // Proceed and let handleResponse surface the status if auth endpoint fails
+    }
+  }
+
+  let response = await fetch(url, {
+    ...options,
+    headers: buildHeaders(options.headers),
+  })
+
+  if (response.status === 401) {
+    setStoredToken('')
+    try {
+      await quickAuthenticate()
+      response = await fetch(url, {
+        ...options,
+        headers: buildHeaders(options.headers),
+      })
+    } catch {
+      // Keep original 401 response if re-auth fails
+    }
+  }
+
+  return handleResponse(response)
+}
+
+export async function fetchCatalogItems(params = {}) {
+  const query = buildQuery(params)
+  const response = await fetch(`${API_BASE}/items${query}`, {
+    method: 'GET',
+    headers: buildHeaders(),
+  })
+  return handleResponse(response)
+}
+
+export async function createCatalogItem(payload) {
+  return fetchWithAuth(`${API_BASE}/items`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function fetchInventoryEntries(params = {}) {
+  const query = buildQuery(params)
+  return fetchWithAuth(`${API_BASE}/inventory${query}`, {
+    method: 'GET',
+  })
+}
+
+export async function createInventoryEntry(payload) {
+  return fetchWithAuth(`${API_BASE}/inventory`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function updateInventoryEntry(entryId, payload) {
+  return fetchWithAuth(`${API_BASE}/inventory/${entryId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function deleteInventoryEntry(entryId) {
+  return fetchWithAuth(`${API_BASE}/inventory/${entryId}`, {
+    method: 'DELETE',
+  })
 }
 

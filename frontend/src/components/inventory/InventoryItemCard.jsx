@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { formatCategoryLabel, getMealDbImageUrl } from '../../api/inventory.js'
+import { getQuantityStep } from '../../utils/inventoryEditor.js'
 
 function InventoryItemCard({ entry, onEdit, onDelete, onQuickUpdate }) {
   const [imgFailed, setImgFailed] = useState(false)
@@ -21,7 +22,7 @@ function InventoryItemCard({ entry, onEdit, onDelete, onQuickUpdate }) {
 
   const handleStepQuantity = (delta) => {
     if (!onQuickUpdate || !hasQuantity) return
-    const step = entry.unit === 'g' || entry.unit === 'ml' ? 50 : 1
+    const step = getQuantityStep(entry.unit)
     const nextQty = Math.max(0, Number((entry.quantity + delta * step).toFixed(2)))
     onQuickUpdate(entry, {
       quantity: nextQty,

@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertCircle,
-  CookingPot,
   KeyRound,
   Package,
+  PackageX,
+  Pencil,
   Plus,
   RefreshCw,
   Search,
-  Utensils,
 } from 'lucide-react'
 import {
   CATALOG_CATEGORIES,
@@ -19,9 +18,9 @@ import {
   quickAuthenticate,
   updateInventoryEntry,
 } from '../api/inventory.js'
-import AddInventoryModal from '../components/inventory/AddInventoryModal.jsx'
 import DeleteInventoryModal from '../components/inventory/DeleteInventoryModal.jsx'
 import EditInventoryModal from '../components/inventory/EditInventoryModal.jsx'
+import InventoryEditor from '../components/inventory/InventoryEditor.jsx'
 import InventoryItemCard from '../components/inventory/InventoryItemCard.jsx'
 
 const TYPE_TABS = [
@@ -43,8 +42,8 @@ function InventoryPage() {
   const [selectedLocation, setSelectedLocation] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
 
-  // Modals
-  const [isAddOpen, setIsAddOpen] = useState(false)
+  // Edit mode (in-page catalog editor) & modals
+  const [isEditMode, setIsEditMode] = useState(false)
   const [editingEntry, setEditingEntry] = useState(null)
   const [deletingEntry, setDeletingEntry] = useState(null)
 
@@ -110,13 +109,19 @@ function InventoryPage() {
     }
   }
 
-  const handleAddEntry = async (payload) => {
-    const created = await createInventoryEntry(payload)
-    setEntries((prev) =>
-      [...prev, created].sort((a, b) =>
-        (a.item?.name || '').localeCompare(b.item?.name || ''),
-      ),
-    )
+  // Applies all staged edit-mode changes, then reloads the inventory from the API.
+  const handleCommitChanges = async ({ creates, updates }) => {
+    const results = await Promise.allSettled([
+      ...creates.map((payload) => createInventoryEntry(payload)),
+      ...updates.map(({ id, payload }) => updateInventoryEntry(id, payload)),
+    ])
+    await loadInventory()
+    const failed = results.filter((r) => r.status === 'rejected')
+    if (failed.length > 0) {
+      throw new Error(
+        `${failed.length} change(s) could not be saved: ${failed[0].reason?.message || 'unknown error'}`,
+      )
+    }
   }
 
   const handleUpdateEntry = async (entryId, payload) => {
@@ -161,16 +166,12 @@ function InventoryPage() {
     })
   }, [entries, activeTab, selectedLocation, selectedCategory, searchQuery])
 
-  const stats = useMemo(() => {
-    const total = entries.length
-    const ingredients = entries.filter((e) => e.item?.item_type === 'ingredient').length
-    const appliances = entries.filter((e) => e.item?.item_type === 'appliance').length
-    const outOfStock = entries.filter((e) => !e.is_available).length
-    return { total, ingredients, appliances, outOfStock }
-  }, [entries])
-
-  const existingItemIds = useMemo(
-    () => entries.map((entry) => entry.item_id),
+  const outOfStockNames = useMemo(
+    () =>
+      entries
+        .filter((e) => !e.is_available)
+        .map((e) => e.item?.name || 'Unknown item')
+        .sort((a, b) => a.localeCompare(b)),
     [entries],
   )
 
@@ -187,64 +188,54 @@ function InventoryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={handleRefresh}
-            aria-label="Refresh inventory"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[#d8dfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#36583b] transition-colors hover:bg-[#f2f5ee]"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Refresh</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsAddOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#36583b] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#2a462e]"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Item</span>
-          </button>
-        </div>
+        {!isEditMode && (
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={handleRefresh}
+              aria-label="Refresh inventory"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#d8dfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#36583b] transition-colors hover:bg-[#f2f5ee]"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Refresh</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsEditMode(true)}
+              disabled={needsAuth}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#36583b] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#2a462e] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Pencil className="h-4 w-4" />
+              <span>Edit Inventory</span>
+            </button>
+          </div>
+        )}
+        {isEditMode && (
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-[#fdf1d8] px-3 py-1 text-xs font-semibold text-[#8a5a00] sm:self-center">
+            <Pencil className="h-3.5 w-3.5" />
+            Edit mode — use + / − to update your stock, then save
+          </span>
+        )}
       </div>
 
-      {/* Summary Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-[#e6ebe1] bg-white p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#636b5f]">
-            <Package className="h-4 w-4 text-[#36583b]" />
-            <span>Total Items</span>
+      {/* Compact one-line out-of-stock card: only rendered when something has run out */}
+      {outOfStockNames.length > 0 && (
+        <div
+          data-testid="out-of-stock-note"
+          className="flex items-center gap-3 rounded-xl border border-[#e6ebe1] bg-white px-4 py-2.5 shadow-2xs"
+        >
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#f6f1e7] text-[#9a7b4f]">
+            <PackageX className="h-4 w-4" aria-hidden="true" />
           </div>
-          <p className="m-0 mt-1.5 text-2xl font-bold text-[#253b2d]">{stats.total}</p>
+          <span className="shrink-0 text-sm font-semibold text-[#3f4a40]">Out of stock</span>
+          <span className="min-w-0 flex-1 truncate text-sm text-[#7a8075]" title={outOfStockNames.join(', ')}>
+            {outOfStockNames.join(', ')}
+          </span>
+          <span className="shrink-0 rounded-full bg-[#f3f5ef] px-2 py-0.5 text-xs font-medium text-[#5d6659]">
+            {outOfStockNames.length} {outOfStockNames.length === 1 ? 'item' : 'items'}
+          </span>
         </div>
-        <div className="rounded-2xl border border-[#e6ebe1] bg-white p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#636b5f]">
-            <Utensils className="h-4 w-4 text-[#36583b]" />
-            <span>Ingredients</span>
-          </div>
-          <p className="m-0 mt-1.5 text-2xl font-bold text-[#253b2d]">
-            {stats.ingredients}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[#e6ebe1] bg-white p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#636b5f]">
-            <CookingPot className="h-4 w-4 text-[#2c527a]" />
-            <span>Appliances</span>
-          </div>
-          <p className="m-0 mt-1.5 text-2xl font-bold text-[#253b2d]">
-            {stats.appliances}
-          </p>
-        </div>
-        <div className="rounded-2xl border border-[#e6ebe1] bg-white p-4">
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#636b5f]">
-            <AlertCircle className="h-4 w-4 text-[#b42318]" />
-            <span>Out of Stock</span>
-          </div>
-          <p className="m-0 mt-1.5 text-2xl font-bold text-[#253b2d]">
-            {stats.outOfStock}
-          </p>
-        </div>
-      </div>
+      )}
 
       {/* Standalone Auth Helper Banner when no JWT token is present */}
       {needsAuth && (
@@ -284,6 +275,14 @@ function InventoryPage() {
         </div>
       )}
 
+      {isEditMode ? (
+        <InventoryEditor
+          entries={entries}
+          onCommit={handleCommitChanges}
+          onExit={() => setIsEditMode(false)}
+        />
+      ) : (
+      <>
       {/* Search & Filter Toolbar */}
       <div className="space-y-3 rounded-2xl border border-[#e6ebe1] bg-white p-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -404,7 +403,7 @@ function InventoryPage() {
           {entries.length === 0 && (
             <button
               type="button"
-              onClick={() => setIsAddOpen(true)}
+              onClick={() => setIsEditMode(true)}
               className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-[#36583b] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2a462e]"
             >
               <Plus className="h-4 w-4" />
@@ -425,16 +424,10 @@ function InventoryPage() {
           ))}
         </div>
       )}
-
-      {/* Add / Edit / Delete Modals */}
-      {isAddOpen && (
-        <AddInventoryModal
-          isOpen={isAddOpen}
-          onClose={() => setIsAddOpen(false)}
-          onAddEntry={handleAddEntry}
-          existingItemIds={existingItemIds}
-        />
+      </>
       )}
+
+      {/* Edit / Delete Modals */}
 
       {editingEntry && (
         <EditInventoryModal

@@ -185,7 +185,30 @@ describe('InventoryPage UI and API integration', () => {
     expect(screen.getByText('Air Fryer')).toBeInTheDocument()
   })
 
-  it('adds a new catalog item to household inventory via Add Item modal', async () => {
+  it('shows a quiet out-of-stock note only when something has run out', async () => {
+    const user = userEvent.setup()
+    const state = structuredClone(INITIAL_INVENTORY)
+    vi.stubGlobal('fetch', mockFetchImplementation(state))
+
+    render(<InventoryPage />)
+    await waitFor(() => {
+      expect(screen.getByText('Air Fryer')).toBeInTheDocument()
+    })
+    // No stats dashboard and no note while everything is in stock
+    expect(screen.queryByText('Total Items')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('out-of-stock-note')).not.toBeInTheDocument()
+
+    // Running out of an item makes the note appear
+    await user.click(screen.getByRole('button', { name: 'Toggle Air Fryer availability' }))
+    await waitFor(() => {
+      const note = screen.getByTestId('out-of-stock-note')
+      expect(note).toHaveTextContent('Out of stock')
+      expect(note).toHaveTextContent('Air Fryer')
+      expect(note).toHaveTextContent('1 item')
+    })
+  })
+
+  it('adds a catalog item through the in-page edit mode with collapsed categories', async () => {
     const user = userEvent.setup()
     const state = structuredClone(INITIAL_INVENTORY)
     const fetchMock = mockFetchImplementation(state)
@@ -197,27 +220,136 @@ describe('InventoryPage UI and API integration', () => {
       expect(screen.getByText('Tomatoes')).toBeInTheDocument()
     })
 
-    // Open Add Item modal
-    await user.click(screen.getByRole('button', { name: /Add Item/i }))
-    const dialog = await screen.findByRole('dialog', { name: /Add Item to Inventory/i })
+    // Enter edit mode (no dialog is opened)
+    await user.click(screen.getByRole('button', { name: /Edit Inventory/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
 
-    // Select "Milk" from catalog list
-    const milkOption = await within(dialog).findByRole('option', { name: /Milk/i })
-    await user.click(milkOption)
+    // Categories are collapsed by default
+    const dairyHeader = await screen.findByRole('button', { name: /Dairy & Breakfast/i })
+    expect(dairyHeader).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Milk')).not.toBeInTheDocument()
 
-    // Set quantity to 1000 ml
-    const qtyInput = within(dialog).getByLabelText('Quantity')
-    await user.clear(qtyInput)
-    await user.type(qtyInput, '1000')
+    // Expand Dairy and bump Milk twice (+100 ml step)
+    await user.click(dairyHeader)
+    expect(dairyHeader).toHaveAttribute('aria-expanded', 'true')
+    await user.click(screen.getByRole('button', { name: 'Increase Milk' }))
+    await user.click(screen.getByRole('button', { name: 'Increase Milk' }))
+    expect(screen.getByLabelText('Milk quantity')).toHaveValue(200)
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument()
 
-    // Submit form
-    await user.click(within(dialog).getByRole('button', { name: 'Add to Inventory' }))
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
 
-    // Verify new item card is rendered in the inventory list
+    // Back to normal view with the new card
     await waitFor(() => {
       expect(screen.getByText('Milk')).toBeInTheDocument()
-      expect(screen.getByText('1000 ml')).toBeInTheDocument()
+      expect(screen.getByText('200 ml')).toBeInTheDocument()
     })
+    const postCall = fetchMock.mock.calls.find(
+      ([url, opts]) => String(url).endsWith('/inventory') && opts?.method === 'POST',
+    )
+    expect(JSON.parse(postCall[1].body)).toMatchObject({
+      item_id: 41001,
+      quantity: 200,
+      unit: 'ml',
+      is_available: true,
+      location: 'fridge',
+    })
+  })
+
+  it('updates existing stock in edit mode and lets search auto-expand categories', async () => {
+    const user = userEvent.setup()
+    const state = structuredClone(INITIAL_INVENTORY)
+    const fetchMock = mockFetchImplementation(state)
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<InventoryPage />)
+    await waitFor(() => {
+      expect(screen.getByText('500 g')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Edit Inventory/i }))
+    await user.type(await screen.findByLabelText('Search catalog'), 'tom')
+
+    // Matching category opens automatically while searching
+    const qtyInput = await screen.findByLabelText('Tomatoes quantity')
+    expect(qtyInput).toHaveValue(500)
+    await user.click(screen.getByRole('button', { name: 'Decrease Tomatoes' }))
+    expect(qtyInput).toHaveValue(400)
+
+    // Appliance toggle (search for it)
+    await user.clear(screen.getByLabelText('Search catalog'))
+    await user.type(screen.getByLabelText('Search catalog'), 'air')
+    const toggle = await screen.findByRole('switch', { name: 'Toggle Air Fryer' })
+    expect(toggle).toHaveAttribute('aria-checked', 'true')
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('400 g')).toBeInTheDocument()
+    })
+    const patchBodies = fetchMock.mock.calls
+      .filter(([, opts]) => opts?.method === 'PATCH')
+      .map(([url, opts]) => [String(url), JSON.parse(opts.body)])
+    expect(patchBodies).toEqual(
+      expect.arrayContaining([
+        [expect.stringContaining('/inventory/1'), { quantity: 400, is_available: true }],
+        [expect.stringContaining('/inventory/2'), { quantity: null, is_available: false }],
+      ]),
+    )
+  })
+
+  it('keeps only one category expanded at a time in edit mode', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal('fetch', mockFetchImplementation(structuredClone(INITIAL_INVENTORY)))
+
+    render(<InventoryPage />)
+    await waitFor(() => {
+      expect(screen.getByText('Tomatoes')).toBeInTheDocument()
+    })
+    await user.click(screen.getByRole('button', { name: /Edit Inventory/i }))
+
+    const vegHeader = await screen.findByRole('button', { name: /Vegetable/i })
+    const dairyHeader = screen.getByRole('button', { name: /Dairy & Breakfast/i })
+
+    await user.click(vegHeader)
+    expect(vegHeader).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText('Tomatoes quantity')).toBeInTheDocument()
+
+    // Opening another category collapses the previous one
+    await user.click(dairyHeader)
+    expect(dairyHeader).toHaveAttribute('aria-expanded', 'true')
+    expect(vegHeader).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByLabelText('Tomatoes quantity')).not.toBeInTheDocument()
+
+    // Clicking the open category again collapses it
+    await user.click(dairyHeader)
+    expect(dairyHeader).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('discards staged edit-mode changes without calling the API', async () => {
+    const user = userEvent.setup()
+    const state = structuredClone(INITIAL_INVENTORY)
+    const fetchMock = mockFetchImplementation(state)
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<InventoryPage />)
+    await waitFor(() => {
+      expect(screen.getByText('500 g')).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByRole('button', { name: /Edit Inventory/i }))
+    await user.click(await screen.findByRole('button', { name: /Vegetable/i }))
+    await user.click(screen.getByRole('button', { name: 'Increase Tomatoes' }))
+    expect(screen.getByLabelText('Tomatoes quantity')).toHaveValue(600)
+
+    await user.click(screen.getByRole('button', { name: 'Discard' }))
+
+    expect(screen.getByText('500 g')).toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([, opts]) => ['POST', 'PATCH'].includes(opts?.method)),
+    ).toBe(false)
   })
 
   it('edits an existing item via Edit Item modal and updates its display', async () => {
