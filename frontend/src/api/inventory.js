@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
+const API_V1_BASE = `${API_ORIGIN}/api/v1`
+const AUTH_BASE = `${API_ORIGIN}/auth`
 
 export const STORAGE_LOCATIONS = [
   { value: 'fridge', label: 'Fridge' },
@@ -114,19 +116,19 @@ export async function quickAuthenticate({
   full_name = 'BeeChef Demo User',
 } = {}) {
   // Try logging in first; if user doesn't exist yet, register and then log in.
-  let loginRes = await fetch(`${API_BASE}/auth/login`, {
+  let loginRes = await fetch(`${AUTH_BASE}/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   })
 
   if (!loginRes.ok) {
-    await fetch(`${API_BASE}/auth/register`, {
+    await fetch(`${AUTH_BASE}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, full_name }),
     })
-    loginRes = await fetch(`${API_BASE}/auth/login`, {
+    loginRes = await fetch(`${AUTH_BASE}/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -172,7 +174,7 @@ async function fetchWithAuth(url, options = {}) {
 
 export async function fetchCatalogItems(params = {}) {
   const query = buildQuery(params)
-  const response = await fetch(`${API_BASE}/items${query}`, {
+  const response = await fetch(`${API_V1_BASE}/items${query}`, {
     method: 'GET',
     headers: buildHeaders(),
   })
@@ -180,7 +182,7 @@ export async function fetchCatalogItems(params = {}) {
 }
 
 export async function createCatalogItem(payload) {
-  return fetchWithAuth(`${API_BASE}/items`, {
+  return fetchWithAuth(`${API_V1_BASE}/items`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
@@ -188,27 +190,27 @@ export async function createCatalogItem(payload) {
 
 export async function fetchInventoryEntries(params = {}) {
   const query = buildQuery(params)
-  return fetchWithAuth(`${API_BASE}/inventory${query}`, {
+  return fetchWithAuth(`${API_V1_BASE}/inventory${query}`, {
     method: 'GET',
   })
 }
 
 export async function createInventoryEntry(payload) {
-  return fetchWithAuth(`${API_BASE}/inventory`, {
+  return fetchWithAuth(`${API_V1_BASE}/inventory`, {
     method: 'POST',
     body: JSON.stringify(payload),
   })
 }
 
 export async function updateInventoryEntry(entryId, payload) {
-  return fetchWithAuth(`${API_BASE}/inventory/${entryId}`, {
+  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
 }
 
 export async function deleteInventoryEntry(entryId) {
-  return fetchWithAuth(`${API_BASE}/inventory/${entryId}`, {
+  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}`, {
     method: 'DELETE',
   })
 }

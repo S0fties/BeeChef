@@ -65,8 +65,8 @@ function mockFetchImplementation(inventoryState) {
     const method = (options.method || 'GET').toUpperCase()
     const urlStr = String(url)
 
-    // GET /api/inventory
-    if (urlStr.includes('/inventory') && method === 'GET') {
+    // GET /api/v1/inventory
+    if (urlStr.includes('/api/v1/inventory') && method === 'GET') {
       return {
         ok: true,
         status: 200,
@@ -74,8 +74,8 @@ function mockFetchImplementation(inventoryState) {
       }
     }
 
-    // GET /api/items
-    if (urlStr.includes('/items') && method === 'GET') {
+    // GET /api/v1/items
+    if (urlStr.includes('/api/v1/items') && method === 'GET') {
       return {
         ok: true,
         status: 200,
@@ -83,8 +83,8 @@ function mockFetchImplementation(inventoryState) {
       }
     }
 
-    // POST /api/inventory
-    if (urlStr.endsWith('/inventory') && method === 'POST') {
+    // POST /api/v1/inventory
+    if (urlStr.endsWith('/api/v1/inventory') && method === 'POST') {
       const body = JSON.parse(options.body)
       const catalogItem = SAMPLE_CATALOG.find((c) => c.id === body.item_id)
       const created = {
@@ -107,9 +107,9 @@ function mockFetchImplementation(inventoryState) {
       }
     }
 
-    // PATCH /api/inventory/:id
-    if (urlStr.includes('/inventory/') && method === 'PATCH') {
-      const id = Number(urlStr.split('/inventory/')[1])
+    // PATCH /api/v1/inventory/:id
+    if (urlStr.includes('/api/v1/inventory/') && method === 'PATCH') {
+      const id = Number(urlStr.split('/api/v1/inventory/')[1])
       const body = JSON.parse(options.body)
       const idx = inventoryState.findIndex((e) => e.id === id)
       const updated = {
@@ -124,9 +124,9 @@ function mockFetchImplementation(inventoryState) {
       }
     }
 
-    // DELETE /api/inventory/:id
-    if (urlStr.includes('/inventory/') && method === 'DELETE') {
-      const id = Number(urlStr.split('/inventory/')[1])
+    // DELETE /api/v1/inventory/:id
+    if (urlStr.includes('/api/v1/inventory/') && method === 'DELETE') {
+      const id = Number(urlStr.split('/api/v1/inventory/')[1])
       const idx = inventoryState.findIndex((e) => e.id === id)
       if (idx !== -1) inventoryState.splice(idx, 1)
       return {
@@ -245,7 +245,7 @@ describe('InventoryPage UI and API integration', () => {
       expect(screen.getByText('200 ml')).toBeInTheDocument()
     })
     const postCall = fetchMock.mock.calls.find(
-      ([url, opts]) => String(url).endsWith('/inventory') && opts?.method === 'POST',
+      ([url, opts]) => String(url).endsWith('/api/v1/inventory') && opts?.method === 'POST',
     )
     expect(JSON.parse(postCall[1].body)).toMatchObject({
       item_id: 41001,
@@ -294,8 +294,8 @@ describe('InventoryPage UI and API integration', () => {
       .map(([url, opts]) => [String(url), JSON.parse(opts.body)])
     expect(patchBodies).toEqual(
       expect.arrayContaining([
-        [expect.stringContaining('/inventory/1'), { quantity: 400, is_available: true }],
-        [expect.stringContaining('/inventory/2'), { quantity: null, is_available: false }],
+        [expect.stringContaining('/api/v1/inventory/1'), { quantity: 400, is_available: true }],
+        [expect.stringContaining('/api/v1/inventory/2'), { quantity: null, is_available: false }],
       ]),
     )
   })
