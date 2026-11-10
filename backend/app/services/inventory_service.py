@@ -5,7 +5,6 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
@@ -68,7 +67,7 @@ def create_catalog_item(db: Session, payload: ItemCreate) -> Item:
     )
     if existing is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Catalog item with this name already exists",
         )
 
@@ -90,7 +89,7 @@ def create_catalog_item(db: Session, payload: ItemCreate) -> Item:
     except IntegrityError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Catalog item with this name already exists",
         )
     db.refresh(item)
@@ -111,7 +110,7 @@ def update_catalog_item(db: Session, item_id: int, payload: ItemUpdate) -> Item:
         )
         if conflict is not None:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_409_CONFLICT,
                 detail="Catalog item with this name already exists",
             )
         item.name = updates["name"]
@@ -136,16 +135,34 @@ def update_catalog_item(db: Session, item_id: int, payload: ItemUpdate) -> Item:
     except IntegrityError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Catalog item with this name already exists",
         )
     db.refresh(item)
     return item
 
 
-def delete_catalog_item(db: Session, item_id: int) -> None:
-    """Delete a catalog item if it is not referenced by any household inventory."""
+def delete_catalog_item(
+    db: Session, item_id: int, *, user: User | None = None
+) -> None:
+    """Delete a catalog item if the user is an owner and the item is not in use."""
     item = get_catalog_item(db, item_id)
+
+    if user is not None:
+        is_owner = db.scalar(
+            select(HouseholdMember.id)
+            .where(
+                HouseholdMember.user_id == user.id,
+                HouseholdMember.role == HouseholdRole.OWNER,
+            )
+            .limit(1)
+        )
+        if is_owner is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only household owners can delete catalog items",
+            )
+
     in_use = db.scalar(
         select(InventoryEntry.id).where(InventoryEntry.item_id == item_id).limit(1)
     )
@@ -173,15 +190,20 @@ def resolve_user_household_id(
     user: User,
     household_id: int | None = None,
     *,
-    auto_create_if_none: bool = True,
-) -> int:
+    allow_none: bool = False,
+    required_roles: set[HouseholdRole] | None = None,
+) -> int | None:
     """Resolve and authorize a household ID for the authenticated user.
 
-    If ``household_id`` is explicitly passed, verifies the user is a member of
-    that household (raising 403 otherwise).
-    If ``household_id`` is omitted, returns the user's first household membership;
-    if the user has no household yet and ``auto_create_if_none`` is True, creates
-    a default household so the inventory feature works seamlessly.
+    - If ``household_id`` is explicitly passed and the user is not a member of
+      that household, raises **404 Not Found** to avoid leaking household existence.
+    - If ``household_id`` is omitted, resolves the user's first household
+      membership. If the user has no household membership:
+      - returns ``None`` when ``allow_none=True`` (used by ``GET /api/v1/inventory``
+        to return ``[]`` without side effects), or
+      - raises **404 Not Found** when ``allow_none=False``.
+    - If ``required_roles`` is provided and the user's membership role is not in
+      ``required_roles``, raises **403 Forbidden**.
     """
     if household_id is not None:
         membership = db.scalar(
@@ -192,38 +214,30 @@ def resolve_user_household_id(
         )
         if membership is None:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="You are not a member of this household",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Household not found",
             )
-        return household_id
+    else:
+        membership = db.scalar(
+            select(HouseholdMember)
+            .where(HouseholdMember.user_id == user.id)
+            .order_by(HouseholdMember.id.asc())
+        )
+        if membership is None:
+            if allow_none:
+                return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Household not found",
+            )
 
-    membership = db.scalar(
-        select(HouseholdMember)
-        .where(HouseholdMember.user_id == user.id)
-        .order_by(HouseholdMember.id.asc())
-    )
-    if membership is not None:
-        return membership.household_id
-
-    if not auto_create_if_none:
+    if required_roles is not None and membership.role not in required_roles:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User does not belong to any household",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions in this household",
         )
 
-    household = Household(name=f"{user.full_name}'s Home")
-    db.add(household)
-    db.flush()
-
-    member = HouseholdMember(
-        user_id=user.id,
-        household_id=household.id,
-        role=HouseholdRole.OWNER,
-    )
-    db.add(member)
-    db.commit()
-    db.refresh(household)
-    return household.id
+    return membership.household_id
 
 
 # ---------- Household Inventory CRUD ----------
@@ -316,7 +330,7 @@ def create_inventory_entry(
     )
     if duplicate is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Item already exists in household inventory",
         )
 
@@ -348,7 +362,7 @@ def create_inventory_entry(
     except IntegrityError:
         db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Item already exists in household inventory",
         )
     db.refresh(entry)

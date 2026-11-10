@@ -1,4 +1,4 @@
-"""FastAPI router for shared catalog items (/items)."""
+"""FastAPI router for shared catalog items (/api/v1/items)."""
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -10,7 +10,7 @@ from app.models.user import User
 from app.schemas.item import ItemCreate, ItemRead, ItemUpdate
 from app.services import inventory_service
 
-router = APIRouter(prefix="/items", tags=["items"])
+router = APIRouter(prefix="/api/v1/items", tags=["items"])
 
 
 @router.get("", response_model=list[ItemRead])
@@ -64,5 +64,6 @@ def delete_item(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    inventory_service.delete_catalog_item(db, item_id)
+    inventory_service.delete_catalog_item(db, item_id, user=current_user)
+
 

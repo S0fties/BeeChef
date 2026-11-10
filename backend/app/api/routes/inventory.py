@@ -1,4 +1,4 @@
-"""FastAPI router for household inventory entries (/inventory)."""
+"""FastAPI router for household inventory entries (/api/v1/inventory)."""
 
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
@@ -14,7 +14,7 @@ from app.schemas.inventory import (
 )
 from app.services import inventory_service
 
-router = APIRouter(prefix="/inventory", tags=["inventory"])
+router = APIRouter(prefix="/api/v1/inventory", tags=["inventory"])
 
 
 @router.get("", response_model=list[InventoryEntryRead])
@@ -29,8 +29,13 @@ def list_inventory(
     current_user: User = Depends(get_current_user),
 ):
     resolved_household_id = inventory_service.resolve_user_household_id(
-        db, current_user, household_id=household_id
+        db,
+        current_user,
+        household_id=household_id,
+        allow_none=True,
     )
+    if resolved_household_id is None:
+        return []
     return inventory_service.list_inventory_entries(
         db,
         resolved_household_id,
@@ -96,4 +101,5 @@ def delete_inventory_entry(
         db, current_user, household_id=household_id
     )
     inventory_service.delete_inventory_entry(db, entry_id, resolved_household_id)
+
 
