@@ -334,18 +334,33 @@ describe('InventoryPage UI and API integration', () => {
     const fetchMock = mockFetchImplementation(state)
     vi.stubGlobal('fetch', fetchMock)
 
-    render(<InventoryPage />)
+    render(
+      <>
+        <header data-testid="main-nav-header">
+          <nav aria-label="Main navigation">Nav</nav>
+        </header>
+        <InventoryPage />
+      </>,
+    )
     await waitFor(() => {
       expect(screen.getByText('500 g')).toBeInTheDocument()
     })
 
+    const navHeader = screen.getByTestId('main-nav-header')
+    expect(navHeader).not.toHaveStyle({ visibility: 'hidden' })
+
     await user.click(screen.getByRole('button', { name: /Edit Inventory/i }))
+    expect(navHeader).toHaveStyle({ visibility: 'hidden', pointerEvents: 'none' })
+    expect(navHeader).toHaveAttribute('aria-hidden', 'true')
+
     await user.click(await screen.findByRole('button', { name: /Vegetable/i }))
     await user.click(screen.getByRole('button', { name: 'Increase Tomatoes' }))
     expect(screen.getByLabelText('Tomatoes quantity')).toHaveValue(600)
 
     await user.click(screen.getByRole('button', { name: 'Discard' }))
 
+    expect(navHeader).not.toHaveStyle({ visibility: 'hidden' })
+    expect(navHeader).not.toHaveAttribute('aria-hidden')
     expect(screen.getByText('500 g')).toBeInTheDocument()
     expect(
       fetchMock.mock.calls.some(([, opts]) => ['POST', 'PATCH'].includes(opts?.method)),

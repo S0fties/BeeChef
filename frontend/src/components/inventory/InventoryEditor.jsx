@@ -33,6 +33,30 @@ function InventoryEditor({ entries, onCommit, onExit }) {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    const mainNav = document.querySelector('nav[aria-label="Main navigation"]')
+    const navHeader = mainNav?.closest('header') || mainNav
+    if (!navHeader) return undefined
+
+    const prevVisibility = navHeader.style.visibility
+    const prevPointerEvents = navHeader.style.pointerEvents
+    const prevAriaHidden = navHeader.getAttribute('aria-hidden')
+
+    navHeader.style.visibility = 'hidden'
+    navHeader.style.pointerEvents = 'none'
+    navHeader.setAttribute('aria-hidden', 'true')
+
+    return () => {
+      navHeader.style.visibility = prevVisibility
+      navHeader.style.pointerEvents = prevPointerEvents
+      if (prevAriaHidden === null) {
+        navHeader.removeAttribute('aria-hidden')
+      } else {
+        navHeader.setAttribute('aria-hidden', prevAriaHidden)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
     fetchCatalogItems({ limit: 1000 })
       .then((items) => {
@@ -297,9 +321,9 @@ function InventoryEditor({ entries, onCommit, onExit }) {
         </div>
       )}
 
-      {/* Sticky save bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e0e6da] bg-white/95 px-4 py-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur-sm">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
+      {/* Sticky save bar (replaces bottom navigation bar while in edit mode) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex min-h-[83px] items-center border-t border-[#e0e6da] bg-white px-6 pt-[10px] pb-[max(10px,env(safe-area-inset-bottom))] shadow-[0_-4px_16px_rgba(0,0,0,0.06)] max-[520px]:min-h-[79px] max-[520px]:px-4">
+        <div className="mx-auto flex w-full max-w-[880px] items-center justify-between gap-3">
           <span className="text-sm text-[#4f5d50]" aria-live="polite">
             {changeCount === 0
               ? 'No changes yet'
