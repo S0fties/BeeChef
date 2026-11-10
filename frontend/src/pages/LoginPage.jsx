@@ -8,7 +8,7 @@ const inputClass =
 function LoginPage() {
   const { user, loading, login, register } = useAuth()
   const [mode, setMode] = useState('login')
-  const [form, setForm] = useState({ email: '', password: '', full_name: '' })
+  const [form, setForm] = useState({ email: '', password: '',name: '',  surname: '', user_name: '' })
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
@@ -92,3 +92,8 @@ function LoginPage() {
 }
 
 export default LoginPage
+
+
+
+
+ééééé TO DOOOOOO

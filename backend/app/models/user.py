@@ -5,7 +5,7 @@ the class is the table, every ``mapped_column`` is a column,
 and every instance of the class is one row.
 """
 
-from sqlalchemy import String
+from sqlalchemy import Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.session import Base
@@ -18,21 +18,26 @@ class User(Base):
     the ``household_members`` table.
     """
 
-    # Name of the table that will be created in PostgreSQL.
     __tablename__ = "users"
 
-    # Primary key: a unique number that identifies each row.
-    # PostgreSQL generates it automatically (1, 2, 3, ...).
+    # Primary key: auto-incrementing integer (PostgreSQL SERIAL / IDENTITY)
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    # The e-mail address the user logs in with.
-    # unique=True makes the database itself reject a second account with the
-    # same e-mail, so the rule holds even if application code forgets to check.
-    email: Mapped[str] = mapped_column(String(255), unique=True)
+    # Unique login email
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
 
-    # We never store the real password, only its irreversible hash.
-    # The authentication feature will be responsible for creating it.
+    # Password hash (bcrypt / argon2)
     hashed_password: Mapped[str] = mapped_column(String(255))
 
-    # The name displayed in the application (max 100 characters).
-    full_name: Mapped[str] = mapped_column(String(100))
+    # Display name and surname
+    name: Mapped[str] = mapped_column(String(50))
+    surname: Mapped[str] = mapped_column(String(50))
+
+    # Social media handle / username
+    user_name: Mapped[str] = mapped_column(String(30), unique=True, index=True)
+
+    __table_args__ = (
+        # Optional: DB-level case-insensitive uniqueness guarantees
+        Index("uq_users_email_lower", func.lower(email), unique=True),
+        Index("uq_users_user_name_lower", func.lower(user_name), unique=True),
+    )

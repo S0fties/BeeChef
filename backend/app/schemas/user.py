@@ -4,7 +4,9 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    full_name: str = Field(min_length=1, max_length=100)
+    name: str = Field(min_length=1, max_length=50)
+    surname: str = Field(min_length=1, max_length=50)
+    user_name: str = Field(min_length=1, max_length=30)
 
     @field_validator("password")
     @classmethod
@@ -13,12 +15,12 @@ class UserCreate(BaseModel):
             raise ValueError("Password too long!")
         return v
 
-    @field_validator("full_name")
+    @field_validator("name", "surname", "user_name")
     @classmethod
     def strip_name(cls, v: str) -> str:
         v = v.strip()
         if not v:
-            raise ValueError("Full name must not be blank")
+            raise ValueError("Name fields must not be blank")
         return v
 
 
@@ -33,7 +35,9 @@ class UserRead(BaseModel):
 
     id: int
     email: EmailStr
-    full_name: str
+    name: str
+    surname: str
+    user_name: str
 
 
 class Token(BaseModel):

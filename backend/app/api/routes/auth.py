@@ -14,27 +14,32 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import Token, UserCreate, UserLogin, UserRead
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     email = payload.email.lower()
+    user_name = payload.user_name
 
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered")
+    if db.scalar(select(User).where(User.user_name == user_name)):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already taken")
 
     user = User(
         email=email,
         hashed_password=hash_password(payload.password),
-        full_name=payload.full_name,
+        name=payload.name,
+        surname=payload.surname,
+        user_name=payload.user_name,
     )
     db.add(user)
     try:
         db.commit()
     except IntegrityError:  # concurrent request won the race on the unique index
         db.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already registered")
     db.refresh(user)
     return user
 
