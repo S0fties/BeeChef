@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 
 class UserCreate(BaseModel):
@@ -28,6 +28,17 @@ class UserLogin(BaseModel):
     # plain str on purpose: a malformed email at login is just "bad credentials" (401)
     email: str
     password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str = Field
+
+    @model_validator(mode="after")
+    def passwords_differ(self):
+        if self.current_password == self.new_password:
+            raise ValueError("New password must be different from current password")
+        return self
 
 
 class UserRead(BaseModel):

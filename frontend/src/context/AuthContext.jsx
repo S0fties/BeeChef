@@ -28,13 +28,17 @@ export function AuthProvider({ children }) {
     await login(email, password); // log in right after registering
   };
 
+  const changePassword = async ({ email, current_password, new_password}) => {
+    await api.changePassword({ email, current_password, new_password});
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

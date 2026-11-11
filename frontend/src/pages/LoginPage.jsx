@@ -41,21 +41,45 @@ function LoginPage() {
         </h1>
 
         {!isLogin && (
-          <input
-            className={inputClass}
-            placeholder="Full name"
-            value={form.full_name}
-            onChange={update('full_name')}
-            maxLength={100}
-            required
-          />
+          <>
+            <div className="flex gap-2">
+              <input
+                className={inputClass}
+                placeholder="Name"
+                value={form.name}
+                onChange={update('name')}
+                maxLength={50}
+                required
+              />
+              <input
+                className={inputClass}
+                placeholder="Surname"
+                value={form.surname}
+                onChange={update('surname')}
+                maxLength={20}
+                required
+              />
+            </div>
+
+            <input
+              className={inputClass}
+              placeholder="Username"
+              value={form.user_name}
+              onChange={update('user_name')}
+              maxLength={20}
+              autoComplete="username"
+              required
+            />
+          </>
         )}
+
         <input
           className={inputClass}
           type="email"
           placeholder="Email"
           value={form.email}
           onChange={update('email')}
+          autoComplete="email"
           required
         />
         <input
@@ -64,6 +88,7 @@ function LoginPage() {
           placeholder="Password"
           value={form.password}
           onChange={update('password')}
+          autoComplete={isLogin ? 'current-password' : 'new-password'}
           required
         />
 
@@ -92,8 +117,3 @@ function LoginPage() {
 }
 
 export default LoginPage
-
-
-
-
-ééééé TO DOOOOOO

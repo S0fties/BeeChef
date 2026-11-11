@@ -12,7 +12,7 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserRead
+from app.schemas.user import Token, UserCreate, UserLogin, UserRead, PasswordChange
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -60,6 +60,21 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         )
 
     return Token(access_token=create_access_token(str(user.id)))
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(payload: PasswordChange, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    db.add(current_user)
+    db.commit()
+
+    return None
 
 
 @router.get("/me", response_model=UserRead)
