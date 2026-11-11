@@ -3,6 +3,7 @@ import { api, getToken, setToken } from "../services/api";
 
 const AuthContext = createContext(null);
 
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
@@ -44,4 +45,5 @@ export function AuthProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => useContext(AuthContext);
