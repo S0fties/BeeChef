@@ -6,8 +6,11 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.api.routes import auth
+from app.api.routes import auth, media
 from app.db.session import get_db
+
+from fastapi.staticfiles import StaticFiles
+from app.core.config import settings
 
 app = FastAPI(title="BeeChef API")
 
@@ -17,8 +20,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],  # needed for the Authorization header
 )
+# Mount static uploads directory
+settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 app.include_router(auth.router)
+app.include_router(media.router)
 
 # FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
 @app.exception_handler(RequestValidationError)
