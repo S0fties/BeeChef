@@ -25,15 +25,17 @@ def client(db_session):
 def auth_headers(client: TestClient) -> dict:
     """Register, login, and return authorization Bearer header."""
     client.post(
-        "/auth/register",
+        "/api/v1/auth/register",
         json={
             "email": "media_tester@example.com",
             "password": "strong-password-123",
-            "full_name": "Media Tester",
+            "name": "Media",
+            "surname": "Tester",
+            "user_name": "Tester31",
         },
     )
     login_res = client.post(
-        "/auth/login",
+        "/api/v1/auth/login",
         json={"email": "media_tester@example.com", "password": "strong-password-123"},
     )
     token = login_res.json()["access_token"]

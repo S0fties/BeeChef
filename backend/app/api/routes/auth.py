@@ -12,29 +12,34 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import Token, UserCreate, UserLogin, UserRead
+from app.schemas.user import Token, UserCreate, UserLogin, UserRead, PasswordChange
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
     email = payload.email.lower()
+    user_name = payload.user_name
 
     if db.scalar(select(User).where(User.email == email)):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered")
+    if db.scalar(select(User).where(User.user_name == user_name)):
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already taken")
 
     user = User(
         email=email,
         hashed_password=hash_password(payload.password),
-        full_name=payload.full_name,
+        name=payload.name,
+        surname=payload.surname,
+        user_name=payload.user_name,
     )
     db.add(user)
     try:
         db.commit()
     except IntegrityError:  # concurrent request won the race on the unique index
         db.rollback()
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Email already registered")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Username already registered")
     db.refresh(user)
     return user
 
@@ -55,6 +60,21 @@ def login(payload: UserLogin, db: Session = Depends(get_db)):
         )
 
     return Token(access_token=create_access_token(str(user.id)))
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(payload: PasswordChange, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    db.add(current_user)
+    db.commit()
+
+    return None
 
 
 @router.get("/me", response_model=UserRead)
