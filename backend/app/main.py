@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.api.routes import auth, inventory, items
+from app.api.routes import auth, media, inventory, items
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
 
