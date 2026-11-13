@@ -31,15 +31,28 @@ def client(db_session):
 
 # ---------- helpers ----------
 
-def register(client, email="chef@example.com", password=PASSWORD, full_name="Bee Chef"):
+def register(
+    client,
+    email="chef@example.com",
+    password=PASSWORD,
+    name="Bee",
+    surname="Chef",
+    user_name="beechef",
+):
     return client.post(
-        "/auth/register",
-        json={"email": email, "password": password, "full_name": full_name},
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": password,
+            "name": name,
+            "surname": surname,
+            "user_name": user_name,
+        },
     )
 
 
 def login(client, email="chef@example.com", password=PASSWORD):
-    return client.post("/auth/login", json={"email": email, "password": password})
+    return client.post("/api/v1/auth/login", json={"email": email, "password": password})
 
 
 def auth_header(token: str) -> dict:
@@ -62,12 +75,17 @@ def test_register_creates_user(client, db_session):
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "chef@example.com"
-    assert body["full_name"] == "Bee Chef"
+    assert body["name"] == "Bee"
+    assert body["surname"] == "Chef"
+    assert body["user_name"] == "beechef"
     assert isinstance(body["id"], int)
 
     saved = db_session.scalar(select(User).where(User.email == "chef@example.com"))
     assert saved is not None
     assert saved.id == body["id"]
+    assert saved.name == "Bee"
+    assert saved.surname == "Chef"
+    assert saved.user_name == "beechef"
 
 
 def test_register_never_returns_password_data(client):
@@ -109,6 +127,15 @@ def test_register_duplicate_email_is_case_insensitive(client):
     assert response.status_code == 400
 
 
+def test_register_duplicate_user_name_returns_400(client):
+    assert register(client, email="user1@example.com", user_name="unique_tag").status_code == 201
+
+    response = register(client, email="user2@example.com", user_name="unique_tag")
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Username already taken"
+
+
 @pytest.mark.parametrize(
     "bad_email",
     ["plainaddress", "user@", "@example.com", "user@@example.com", ""],
@@ -125,15 +152,47 @@ def test_register_password_over_72_bytes_returns_400(client):
     assert response.status_code == 400
 
 
-@pytest.mark.parametrize("full_name", ["", "   "])
-def test_register_blank_full_name_returns_400(client, full_name):
-    response = register(client, full_name=full_name)
+@pytest.mark.parametrize("blank_name", ["", "   "])
+def test_register_blank_name_returns_400(client, blank_name):
+    response = register(client, name=blank_name)
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("blank_surname", ["", "   "])
+def test_register_blank_surname_returns_400(client, blank_surname):
+    response = register(client, surname=blank_surname)
+
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize("blank_user_name", ["", "   "])
+def test_register_blank_user_name_returns_400(client, blank_user_name):
+    response = register(client, user_name=blank_user_name)
+
+    assert response.status_code == 400
+
+
+def test_register_name_over_max_length_returns_400(client):
+    response = register(client, name="a" * 51)
+
+    assert response.status_code == 400
+
+
+def test_register_surname_over_max_length_returns_400(client):
+    response = register(client, surname="a" * 51)
+
+    assert response.status_code == 400
+
+
+def test_register_user_name_over_max_length_returns_400(client):
+    response = register(client, user_name="a" * 31)
 
     assert response.status_code == 400
 
 
 def test_register_missing_fields_returns_400(client):
-    response = client.post("/auth/register", json={"email": "chef@example.com"})
+    response = client.post("/api/v1/auth/register", json={"email": "chef@example.com"})
 
     assert response.status_code == 400
 
@@ -196,40 +255,54 @@ def test_login_errors_do_not_reveal_which_field_was_wrong(client):
     assert wrong_password.json() == unknown_email.json()
 
 
-# ---------- current user (/auth/me) ----------
+# ---------- current user (/api/v1/auth/me) ----------
 
 def test_me_returns_current_user_with_valid_token(client):
     user_id = register(client).json()["id"]
     token = login(client).json()["access_token"]
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 200
     assert response.json() == {
         "id": user_id,
         "email": "chef@example.com",
-        "full_name": "Bee Chef",
+        "name": "Bee",
+        "surname": "Chef",
+        "user_name": "beechef",
     }
 
 
 def test_me_returns_the_token_owner_not_another_user(client):
-    register(client, email="first@example.com", full_name="First")
-    register(client, email="second@example.com", full_name="Second")
+    register(
+        client,
+        email="first@example.com",
+        name="First",
+        surname="User",
+        user_name="first_user",
+    )
+    register(
+        client,
+        email="second@example.com",
+        name="Second",
+        surname="User",
+        user_name="second_user",
+    )
     token = login(client, email="second@example.com").json()["access_token"]
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.json()["email"] == "second@example.com"
 
 
 def test_me_without_token_returns_401(client):
-    response = client.get("/auth/me")
+    response = client.get("/api/v1/auth/me")
 
     assert response.status_code == 401
 
 
 def test_me_with_garbage_token_returns_401(client):
-    response = client.get("/auth/me", headers=auth_header("not.a.jwt"))
+    response = client.get("/api/v1/auth/me", headers=auth_header("not.a.jwt"))
 
     assert response.status_code == 401
     assert response.headers["www-authenticate"] == "Bearer"
@@ -239,7 +312,7 @@ def test_me_with_expired_token_returns_401(client):
     user_id = register(client).json()["id"]
     token = make_token(str(user_id), expires_in=timedelta(minutes=-1))
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 401
 
@@ -248,7 +321,7 @@ def test_me_with_token_signed_by_wrong_key_returns_401(client):
     user_id = register(client).json()["id"]
     token = make_token(str(user_id), key="x" * 64)
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 401
 
@@ -257,7 +330,7 @@ def test_me_with_non_access_token_type_returns_401(client):
     user_id = register(client).json()["id"]
     token = make_token(str(user_id), token_type="refresh")
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 401
 
@@ -265,7 +338,7 @@ def test_me_with_non_access_token_type_returns_401(client):
 def test_me_with_non_numeric_subject_returns_401(client):
     token = make_token("not-a-number")
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 401
 
@@ -276,6 +349,6 @@ def test_me_for_deleted_user_returns_401(client, db_session):
     db_session.delete(db_session.get(User, user_id))
     db_session.commit()
 
-    response = client.get("/auth/me", headers=auth_header(token))
+    response = client.get("/api/v1/auth/me", headers=auth_header(token))
 
     assert response.status_code == 401

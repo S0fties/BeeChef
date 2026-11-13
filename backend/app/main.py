@@ -13,6 +13,9 @@ from app.api.routes import auth, inventory, items
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
 
+from fastapi.staticfiles import StaticFiles
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,9 +44,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],  # Vite dev server
+    allow_methods=["*"],
+    allow_headers=["*"],  # needed for the Authorization header
+)
+# Mount static uploads directory
+settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
+
 app.include_router(auth.router)
 app.include_router(items.router)
 app.include_router(inventory.router)
+app.include_router(media.router)
 
 # FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
 @app.exception_handler(RequestValidationError)
