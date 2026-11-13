@@ -27,7 +27,7 @@ def client(db_session):
 def register_and_login(client, email="chef@example.com"):
     user_res = client.post(
         "/auth/register",
-        json={"email": email, "password": PASSWORD, "full_name": "Bee Chef"},
+        json={"email": email, "password": PASSWORD, "name": "bee", "surname": "chef", "user_name": "beechef"},
     )
     user_id = user_res.json()["id"]
     token = client.post(
