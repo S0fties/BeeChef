@@ -13,7 +13,7 @@ def _create_user_and_household(db_session):
     Several tests need these two rows before they can create a membership,
     so the setup lives here once instead of being copy-pasted.
     """
-    user = User(email="ayse@mail.com", hashed_password="x", full_name="Ayse")
+    user = User(email="ayse@mail.com", hashed_password="x", name="Ayse", surname="Yılmazer", user_name="YılmazerAyşe31")
     household = Household(name="Softies House")
     db_session.add_all([user, household])
     db_session.commit()  # commit first so both rows receive their ids

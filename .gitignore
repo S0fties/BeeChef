@@ -9,6 +9,9 @@ htmlcov/
 .coverage
 .ruff_cache/
 
+# Uploads
+backend/uploads/
+
 # --- Node.js / React ---
 node_modules/
 build/

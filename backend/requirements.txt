@@ -11,3 +11,5 @@ pyjwt
 sqlalchemy
 alembic
 psycopg[binary]
+
+python-multipart
