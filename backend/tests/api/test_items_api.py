@@ -28,7 +28,7 @@ def register_and_login(client, email="chef@example.com"):
     username = email.split("@")[0].replace(".", "_")
     user_res = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "name": "bee", "surname": "chef", "user_name": username},
+        json={"email": email, "password": PASSWORD, "name": "Bee", "surname": "Chef", "user_name": username},
     )
     user_id = user_res.json()["id"]
     token = client.post(
