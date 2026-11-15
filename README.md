@@ -5,11 +5,11 @@ BeeChef is an AI-powered smart kitchen application that helps households track i
 
 | Name | Management Role | Development Role |
 | :--- | :--- | :--- |
-| Eren Söylemez | Product Owner | Developer |
-| Erdem Toruk | Scrum Master | Developer |
-| Ahmet Yasir Göktepe | DevOps Manager | Developer |
-| Mehmet Akif Ögrenir | Test Manager | Developer |
-| Celal Gündoğdu | UX Manager | Developer |
+| Eren Söylemez | Product Owner | Full Stack Developer |
+| Erdem Toruk | Scrum Master | Full Stack Developer |
+| Ahmet Yasir Göktepe | DevOps Manager | Full Stack Developer |
+| Mehmet Akif Ögrenir | Test Manager | Full Stack Developer |
+| Celal Gündoğdu | UX Manager | Full Stack Developer |
 
 ## Prerequisites
 
