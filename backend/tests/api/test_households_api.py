@@ -8,6 +8,8 @@ from app.db.session import get_db
 from app.main import app
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
+from app.models.inventory_entry import InventoryEntry
+from app.models.item import Item, ItemType
 
 PASSWORD = "correct-horse-battery"
 HOUSEHOLDS_URL = "/api/v1/households"
@@ -64,6 +66,11 @@ def add_member(
         HouseholdMember(user_id=user_id, household_id=household_id, role=role)
     )
     db_session.commit()
+
+
+def count_rows(db_session, model, *conditions) -> int:
+    stmt = select(func.count()).select_from(model).where(*conditions)
+    return db_session.scalar(stmt)
 
 
 def test_create_household_returns_201_and_owner_role(client):
@@ -331,3 +338,91 @@ def test_update_household_without_token_returns_401(client, db_session):
     )
 
     assert response.status_code == 401
+
+
+# ---------- delete household ----------
+
+def test_owner_can_delete_household(client, db_session):
+    user_id, headers = register_and_login(client)
+    household_id = add_household(db_session, user_id).id
+
+    response = client.delete(f"{HOUSEHOLDS_URL}/{household_id}", headers=headers)
+
+    assert response.status_code == 204
+    assert response.content == b""
+    assert count_rows(db_session, Household, Household.id == household_id) == 0
+
+    follow_up = client.get(f"{HOUSEHOLDS_URL}/{household_id}", headers=headers)
+    assert follow_up.status_code == 404
+
+
+def test_delete_household_cascades_to_memberships_and_inventory(client, db_session):
+    owner_id, owner_headers = register_and_login(client, email="owner@example.com")
+    member_id, _ = register_and_login(client, email="member@example.com")
+    bystander_id, _ = register_and_login(client, email="bystander@example.com")
+    doomed = add_household(db_session, owner_id, name="Doomed House")
+    add_member(db_session, member_id, doomed.id)
+    survivor = add_household(db_session, bystander_id, name="Safe House")
+    db_session.add(
+        Item(
+            id=23001,
+            name="Tomatoes",
+            item_type=ItemType.INGREDIENT,
+            category="VEGETABLE",
+            subcategory="FRUITING_VEGETABLES",
+            default_unit="g",
+        )
+    )
+    db_session.flush()
+    db_session.add_all(
+        [
+            InventoryEntry(household_id=doomed.id, item_id=23001, quantity=500, unit="g"),
+            InventoryEntry(household_id=survivor.id, item_id=23001, quantity=100, unit="g"),
+        ]
+    )
+    db_session.commit()
+    doomed_id, survivor_id = doomed.id, survivor.id
+
+    response = client.delete(f"{HOUSEHOLDS_URL}/{doomed_id}", headers=owner_headers)
+
+    assert response.status_code == 204
+    assert count_rows(db_session, HouseholdMember, HouseholdMember.household_id == doomed_id) == 0
+    assert count_rows(db_session, InventoryEntry, InventoryEntry.household_id == doomed_id) == 0
+    assert count_rows(db_session, HouseholdMember, HouseholdMember.household_id == survivor_id) == 1
+    assert count_rows(db_session, InventoryEntry, InventoryEntry.household_id == survivor_id) == 1
+    assert count_rows(db_session, Item) == 1
+
+
+def test_member_cannot_delete_household(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    member_id, member_headers = register_and_login(client, email="member@example.com")
+    household_id = add_household(db_session, owner_id).id
+    add_member(db_session, member_id, household_id)
+
+    response = client.delete(f"{HOUSEHOLDS_URL}/{household_id}", headers=member_headers)
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Insufficient permissions in this household"}
+    assert count_rows(db_session, Household, Household.id == household_id) == 1
+
+
+def test_non_member_cannot_delete_household(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    _, outsider_headers = register_and_login(client, email="outsider@example.com")
+    household_id = add_household(db_session, owner_id).id
+
+    response = client.delete(f"{HOUSEHOLDS_URL}/{household_id}", headers=outsider_headers)
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Household not found"}
+    assert count_rows(db_session, Household, Household.id == household_id) == 1
+
+
+def test_delete_household_without_token_returns_401(client, db_session):
+    owner_id, _ = register_and_login(client)
+    household_id = add_household(db_session, owner_id).id
+
+    response = client.delete(f"{HOUSEHOLDS_URL}/{household_id}")
+
+    assert response.status_code == 401
+    assert count_rows(db_session, Household, Household.id == household_id) == 1

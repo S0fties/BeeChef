@@ -45,3 +45,11 @@ def update_household(
     db: Session = Depends(get_db),
 ):
     return household_service.update_household(db, membership, payload)
+
+
+@router.delete("/{household_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_household(
+    membership: HouseholdMember = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    household_service.delete_household(db, membership)

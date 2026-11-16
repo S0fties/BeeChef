@@ -84,3 +84,10 @@ def update_household(
     db.commit()
     db.refresh(household)
     return _to_read(household, role)
+
+
+def delete_household(db: Session, membership: HouseholdMember) -> None:
+    """Delete the household; dependent rows are removed by database cascades."""
+    household = db.get(Household, membership.household_id)
+    db.delete(household)
+    db.commit()
