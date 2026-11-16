@@ -1,72 +1,16 @@
-"""API tests for household creation (/api/v1/households)."""
+"""API tests for households (/api/v1/households)."""
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from app.db.session import get_db
-from app.main import app
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
+from app.models.invitation import Invitation, InvitationStatus
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
-from app.models.invitation import Invitation, InvitationStatus
+from tests.helpers import add_household, add_member, count_rows, register_and_login
 
-PASSWORD = "correct-horse-battery"
 HOUSEHOLDS_URL = "/api/v1/households"
-
-
-@pytest.fixture
-def client(db_session):
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
-
-
-def register_and_login(client, email="owner@example.com"):
-    user_name = email.split("@")[0].replace(".", "_")
-    user_id = client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": email,
-            "password": PASSWORD,
-            "name": "Bee",
-            "surname": "Chef",
-            "user_name": user_name,
-        },
-    ).json()["id"]
-    token = client.post(
-        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
-    ).json()["access_token"]
-    return user_id, {"Authorization": f"Bearer {token}"}
-
-
-def add_household(
-    db_session,
-    user_id,
-    name="Softies House",
-    role=HouseholdRole.OWNER,
-) -> Household:
-    household = Household(name=name)
-    db_session.add(household)
-    db_session.flush()
-    db_session.add(
-        HouseholdMember(user_id=user_id, household_id=household.id, role=role)
-    )
-    db_session.commit()
-    return household
-
-
-def add_member(
-    db_session, user_id, household_id, role=HouseholdRole.MEMBER
-) -> None:
-    db_session.add(
-        HouseholdMember(user_id=user_id, household_id=household_id, role=role)
-    )
-    db_session.commit()
 
 
 def count_rows(db_session, model, *conditions) -> int:
