@@ -4,11 +4,11 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
-from app.api.household_deps import get_household_membership
+from app.api.household_deps import get_household_membership, require_owner
 from app.db.session import get_db
 from app.models.household_member import HouseholdMember
 from app.models.user import User
-from app.schemas.household import HouseholdCreate, HouseholdRead
+from app.schemas.household import HouseholdCreate, HouseholdRead, HouseholdUpdate
 from app.services import household_service
 
 router = APIRouter(prefix="/api/v1/households", tags=["households"])
@@ -37,3 +37,11 @@ def get_household(
     db: Session = Depends(get_db),
 ):
     return household_service.get_household(db, membership)
+
+@router.patch("/{household_id}", response_model=HouseholdRead)
+def update_household(
+    payload: HouseholdUpdate,
+    membership: HouseholdMember = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    return household_service.update_household(db, membership, payload)

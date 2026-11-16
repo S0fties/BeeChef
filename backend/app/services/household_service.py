@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.user import User
-from app.schemas.household import HouseholdCreate, HouseholdRead
+from app.schemas.household import HouseholdCreate, HouseholdRead, HouseholdUpdate
 
 
 def _to_read(household: Household, role: HouseholdRole) -> HouseholdRead:
@@ -69,3 +69,18 @@ def get_household(db: Session, membership: HouseholdMember) -> HouseholdRead:
     """Return the household referenced by an already authorized membership."""
     household = db.get(Household, membership.household_id)
     return _to_read(household, membership.role)
+
+def update_household(
+    db: Session, membership: HouseholdMember, payload: HouseholdUpdate
+) -> HouseholdRead:
+    """Apply the provided fields to the household of an authorized owner."""
+    household = db.get(Household, membership.household_id)
+    updates = payload.model_dump(exclude_unset=True)
+
+    if "name" in updates:
+        household.name = updates["name"]
+
+    role = membership.role
+    db.commit()
+    db.refresh(household)
+    return _to_read(household, role)

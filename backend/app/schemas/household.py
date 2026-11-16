@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from pydantic import BaseModel, Field, StringConstraints
+from pydantic import BaseModel, StringConstraints, model_validator
 
 from app.models.household_member import HouseholdRole
 
@@ -17,6 +17,20 @@ class HouseholdCreate(BaseModel):
     """Payload for creating a household."""
 
     name: HouseholdName
+
+
+class HouseholdUpdate(BaseModel):
+    """Partial update payload; only the provided fields are changed."""
+
+    name: HouseholdName | None = None
+
+    @model_validator(mode="after")
+    def validate_provided_fields(self) -> "HouseholdUpdate":
+        if not self.model_fields_set:
+            raise ValueError("At least one field must be provided")
+        if "name" in self.model_fields_set and self.name is None:
+            raise ValueError("name must not be null")
+        return self
 
 
 class HouseholdRead(BaseModel):

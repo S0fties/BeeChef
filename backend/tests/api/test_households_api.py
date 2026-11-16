@@ -229,3 +229,105 @@ def test_get_household_with_non_integer_id_returns_400(client):
     response = client.get(f"{HOUSEHOLDS_URL}/abc", headers=headers)
 
     assert response.status_code == 400
+
+# ---------- update household ----------
+
+def test_owner_can_rename_household(client, db_session):
+    user_id, headers = register_and_login(client)
+    household = add_household(db_session, user_id, name="Old Name")
+
+    response = client.patch(
+        f"{HOUSEHOLDS_URL}/{household.id}",
+        json={"name": "  New Name  "},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == household.id
+    assert body["name"] == "New Name"
+    assert body["role"] == "owner"
+    db_session.refresh(household)
+    assert household.name == "New Name"
+
+
+def test_member_cannot_update_household(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    member_id, member_headers = register_and_login(client, email="member@example.com")
+    household = add_household(db_session, owner_id, name="Old Name")
+    add_member(db_session, member_id, household.id)
+
+    response = client.patch(
+        f"{HOUSEHOLDS_URL}/{household.id}",
+        json={"name": "Hijacked"},
+        headers=member_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Insufficient permissions in this household"}
+    db_session.refresh(household)
+    assert household.name == "Old Name"
+
+
+def test_non_member_cannot_update_household(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    _, outsider_headers = register_and_login(client, email="outsider@example.com")
+    household = add_household(db_session, owner_id, name="Old Name")
+
+    response = client.patch(
+        f"{HOUSEHOLDS_URL}/{household.id}",
+        json={"name": "Hijacked"},
+        headers=outsider_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Household not found"}
+    db_session.refresh(household)
+    assert household.name == "Old Name"
+
+
+def test_update_permission_depends_on_role_in_that_household(client, db_session):
+    user_id, headers = register_and_login(client, email="alice@example.com")
+    other_id, _ = register_and_login(client, email="bob@example.com")
+    own = add_household(db_session, user_id, name="Alice Flat")
+    shared = add_household(db_session, other_id, name="Bob House")
+    add_member(db_session, user_id, shared.id)
+
+    allowed = client.patch(
+        f"{HOUSEHOLDS_URL}/{own.id}", json={"name": "Renamed Flat"}, headers=headers
+    )
+    denied = client.patch(
+        f"{HOUSEHOLDS_URL}/{shared.id}", json={"name": "Renamed House"}, headers=headers
+    )
+
+    assert allowed.status_code == 200
+    assert denied.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"name": None}, {"name": ""}, {"name": "   "}, {"name": "a" * 101}],
+    ids=["empty-body", "null-name", "empty-name", "blank-name", "name-too-long"],
+)
+def test_update_household_invalid_payload_returns_400(client, db_session, payload):
+    user_id, headers = register_and_login(client)
+    household = add_household(db_session, user_id, name="Old Name")
+
+    response = client.patch(
+        f"{HOUSEHOLDS_URL}/{household.id}", json=payload, headers=headers
+    )
+
+    assert response.status_code == 400
+    db_session.refresh(household)
+    assert household.name == "Old Name"
+
+
+def test_update_household_without_token_returns_401(client, db_session):
+    owner_id, _ = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.patch(
+        f"{HOUSEHOLDS_URL}/{household.id}", json={"name": "New Name"}
+    )
+
+    assert response.status_code == 401
