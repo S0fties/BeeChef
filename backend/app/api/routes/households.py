@@ -9,7 +9,8 @@ from app.db.session import get_db
 from app.models.household_member import HouseholdMember
 from app.models.user import User
 from app.schemas.household import HouseholdCreate, HouseholdRead, HouseholdUpdate
-from app.services import household_service
+from app.services import household_service, invitation_service
+from app.schemas.invitation import InvitationCreate, InvitationRead
 
 router = APIRouter(prefix="/api/v1/households", tags=["households"])
 
@@ -53,3 +54,16 @@ def delete_household(
     db: Session = Depends(get_db),
 ):
     household_service.delete_household(db, membership)
+
+
+@router.post(
+    "/{household_id}/invitations",
+    response_model=InvitationRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_invitation(
+    payload: InvitationCreate,
+    membership: HouseholdMember = Depends(require_owner),
+    db: Session = Depends(get_db),
+):
+    return invitation_service.create_invitation(db, membership, payload)

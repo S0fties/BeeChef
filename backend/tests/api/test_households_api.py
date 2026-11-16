@@ -10,6 +10,7 @@ from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
+from app.models.invitation import Invitation, InvitationStatus
 
 PASSWORD = "correct-horse-battery"
 HOUSEHOLDS_URL = "/api/v1/households"
@@ -71,6 +72,10 @@ def add_member(
 def count_rows(db_session, model, *conditions) -> int:
     stmt = select(func.count()).select_from(model).where(*conditions)
     return db_session.scalar(stmt)
+
+
+def invitations_url(household_id: int) -> str:
+    return f"{HOUSEHOLDS_URL}/{household_id}/invitations"
 
 
 def test_create_household_returns_201_and_owner_role(client):
@@ -426,3 +431,189 @@ def test_delete_household_without_token_returns_401(client, db_session):
 
     assert response.status_code == 401
     assert count_rows(db_session, Household, Household.id == household_id) == 1
+
+
+# ---------- create invitation ----------
+
+def test_owner_can_invite_by_email(client, db_session):
+    owner_id, headers = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "maya@example.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert isinstance(body["id"], int)
+    assert body["household_id"] == household.id
+    assert body["invitee_email"] == "maya@example.com"
+    assert body["status"] == "pending"
+    assert body["created_at"] is not None
+
+    saved = db_session.get(Invitation, body["id"])
+    assert saved.invited_by_user_id == owner_id
+    assert saved.status == InvitationStatus.PENDING
+
+
+def test_invitation_email_is_normalized_to_lowercase(client, db_session):
+    owner_id, headers = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "Maya@Example.COM"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert response.json()["invitee_email"] == "maya@example.com"
+
+
+def test_cannot_invite_same_email_twice_while_pending(client, db_session):
+    owner_id, headers = register_and_login(client)
+    household = add_household(db_session, owner_id)
+    url = invitations_url(household.id)
+
+    first = client.post(url, json={"email": "maya@example.com"}, headers=headers)
+    second = client.post(url, json={"email": "MAYA@example.com"}, headers=headers)
+
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert second.json() == {
+        "detail": "A pending invitation already exists for this email"
+    }
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 1
+    )
+
+
+def test_can_invite_again_after_previous_invitation_was_declined(client, db_session):
+    owner_id, headers = register_and_login(client)
+    household = add_household(db_session, owner_id)
+    db_session.add(
+        Invitation(
+            household_id=household.id,
+            invited_by_user_id=owner_id,
+            invitee_email="maya@example.com",
+            status=InvitationStatus.DECLINED,
+        )
+    )
+    db_session.commit()
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "maya@example.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 2
+    )
+
+
+@pytest.mark.parametrize(
+    "email",
+    ["member@example.com", "MEMBER@example.com", "owner@example.com"],
+    ids=["member", "member-uppercase", "owner-self"],
+)
+def test_cannot_invite_existing_member(client, db_session, email):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    member_id, _ = register_and_login(client, email="member@example.com")
+    household = add_household(db_session, owner_id)
+    add_member(db_session, member_id, household.id)
+
+    response = client.post(
+        invitations_url(household.id), json={"email": email}, headers=headers
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": "User is already a member of this household"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
+def test_can_invite_user_who_belongs_to_another_household(client, db_session):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
+    household = add_household(db_session, owner_id)
+    add_household(db_session, maya_id, name="Maya House")
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "maya@example.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+
+
+def test_member_cannot_invite(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    member_id, member_headers = register_and_login(client, email="member@example.com")
+    household = add_household(db_session, owner_id)
+    add_member(db_session, member_id, household.id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "maya@example.com"},
+        headers=member_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Insufficient permissions in this household"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
+def test_non_member_cannot_invite(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    _, outsider_headers = register_and_login(client, email="outsider@example.com")
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"email": "maya@example.com"},
+        headers=outsider_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Household not found"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
+def test_invite_without_token_returns_401(client, db_session):
+    owner_id, _ = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id), json={"email": "maya@example.com"}
+    )
+
+    assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [{}, {"email": ""}, {"email": "plainaddress"}, {"email": "user@"}],
+    ids=["missing-email", "empty-email", "no-at-sign", "no-domain"],
+)
+def test_invite_with_invalid_email_returns_400(client, db_session, payload):
+    owner_id, headers = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id), json=payload, headers=headers
+    )
+
+    assert response.status_code == 400
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
