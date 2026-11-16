@@ -41,6 +41,31 @@ def register_and_login(client, email="owner@example.com"):
     return user_id, {"Authorization": f"Bearer {token}"}
 
 
+def add_household(
+    db_session,
+    user_id,
+    name="Softies House",
+    role=HouseholdRole.OWNER,
+) -> Household:
+    household = Household(name=name)
+    db_session.add(household)
+    db_session.flush()
+    db_session.add(
+        HouseholdMember(user_id=user_id, household_id=household.id, role=role)
+    )
+    db_session.commit()
+    return household
+
+
+def add_member(
+    db_session, user_id, household_id, role=HouseholdRole.MEMBER
+) -> None:
+    db_session.add(
+        HouseholdMember(user_id=user_id, household_id=household_id, role=role)
+    )
+    db_session.commit()
+
+
 def test_create_household_returns_201_and_owner_role(client):
     _, headers = register_and_login(client)
 
@@ -123,3 +148,84 @@ def test_user_can_create_multiple_households(client, db_session):
         select(HouseholdMember).where(HouseholdMember.user_id == user_id)
     ).all()
     assert len(memberships) == 2
+
+# ---------- list my households ----------
+
+def test_list_households_returns_only_my_households_with_roles(client, db_session):
+    user_id, headers = register_and_login(client, email="alice@example.com")
+    other_id, _ = register_and_login(client, email="bob@example.com")
+    third_id, _ = register_and_login(client, email="carol@example.com")
+    own = add_household(db_session, user_id, name="Alice Flat")
+    shared = add_household(db_session, other_id, name="Bob House")
+    add_member(db_session, user_id, shared.id)
+    add_household(db_session, third_id, name="Carol House")
+
+    response = client.get(HOUSEHOLDS_URL, headers=headers)
+
+    assert response.status_code == 200
+    assert [(h["id"], h["name"], h["role"]) for h in response.json()] == [
+        (own.id, "Alice Flat", "owner"),
+        (shared.id, "Bob House", "member"),
+    ]
+
+
+def test_list_households_is_empty_without_membership(client):
+    _, headers = register_and_login(client)
+
+    response = client.get(HOUSEHOLDS_URL, headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+
+def test_list_households_without_token_returns_401(client):
+    response = client.get(HOUSEHOLDS_URL)
+
+    assert response.status_code == 401
+
+
+# ---------- get one household ----------
+
+@pytest.mark.parametrize("role", [HouseholdRole.OWNER, HouseholdRole.MEMBER])
+def test_get_household_is_allowed_for_every_member_role(client, db_session, role):
+    user_id, headers = register_and_login(client)
+    household = add_household(db_session, user_id, role=role)
+
+    response = client.get(f"{HOUSEHOLDS_URL}/{household.id}", headers=headers)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == household.id
+    assert body["name"] == "Softies House"
+    assert body["role"] == role.value
+
+
+def test_get_household_hides_existence_from_non_members(client, db_session):
+    owner_id, _ = register_and_login(client, email="owner@example.com")
+    _, outsider_headers = register_and_login(client, email="outsider@example.com")
+    household = add_household(db_session, owner_id)
+
+    existing = client.get(f"{HOUSEHOLDS_URL}/{household.id}", headers=outsider_headers)
+    missing = client.get(f"{HOUSEHOLDS_URL}/{household.id + 1000}", headers=outsider_headers)
+
+    assert existing.status_code == 404
+    assert existing.json() == {"detail": "Household not found"}
+    assert missing.status_code == 404
+    assert missing.json() == existing.json()
+
+
+def test_get_household_without_token_returns_401(client, db_session):
+    owner_id, _ = register_and_login(client)
+    household = add_household(db_session, owner_id)
+
+    response = client.get(f"{HOUSEHOLDS_URL}/{household.id}")
+
+    assert response.status_code == 401
+
+
+def test_get_household_with_non_integer_id_returns_400(client):
+    _, headers = register_and_login(client)
+
+    response = client.get(f"{HOUSEHOLDS_URL}/abc", headers=headers)
+
+    assert response.status_code == 400

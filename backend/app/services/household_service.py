@@ -1,5 +1,7 @@
 """Service layer for household operations."""
 
+from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.household import Household
@@ -35,3 +37,35 @@ def create_household(
     db.commit()
     db.refresh(household)
     return _to_read(household, HouseholdRole.OWNER)
+
+
+def list_user_households(db: Session, user: User) -> list[HouseholdRead]:
+    """Return every household the user belongs to, with the user's role."""
+    rows = db.execute(
+        select(Household, HouseholdMember.role)
+        .join(HouseholdMember, HouseholdMember.household_id == Household.id)
+        .where(HouseholdMember.user_id == user.id)
+        .order_by(Household.id.asc())
+    ).all()
+    return [_to_read(household, role) for household, role in rows]
+
+
+def get_membership_or_404(
+    db: Session, user: User, household_id: int
+) -> HouseholdMember:
+    """Return the user's membership or 404, hiding whether the household exists."""
+    membership = db.scalar(
+        select(HouseholdMember).where(
+            HouseholdMember.user_id == user.id,
+            HouseholdMember.household_id == household_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Household not found")
+    return membership
+
+
+def get_household(db: Session, membership: HouseholdMember) -> HouseholdRead:
+    """Return the household referenced by an already authorized membership."""
+    household = db.get(Household, membership.household_id)
+    return _to_read(household, membership.role)
