@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.api.routes import auth, media, inventory, items
+from app.api.routes import auth, media, inventory, items, households
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
 
@@ -104,7 +104,7 @@ app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads"
 app.include_router(auth.router)
 app.include_router(items.router)
 app.include_router(inventory.router)
-
+app.include_router(households.router)
 app.include_router(media.router)
 
 
