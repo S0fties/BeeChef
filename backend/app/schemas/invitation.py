@@ -28,3 +28,14 @@ class InvitationRead(BaseModel):
     invitee_email: str
     status: InvitationStatus
     created_at: datetime
+
+
+class ReceivedInvitationRead(BaseModel):
+    """An invitation addressed to the current user, with household context."""
+
+    id: int
+    household_id: int
+    household_name: str
+    invited_by_user_name: str
+    status: InvitationStatus
+    created_at: datetime
