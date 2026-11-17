@@ -43,4 +43,17 @@ export const api = {
   login: (body)          => request("/api/v1/auth/login", { method: "POST", body, auth: false }),
   changePassword: (body) => request("/api/v1/auth/change-password", { method: "POST", body }),
   me: ()                 => request("/api/v1/auth/me"),
+  searchUsers: (username) => request(`/api/v1/friends/search?${new URLSearchParams({ username })}`),
+  listFriends: ()         => request("/api/v1/friends"),
+  sendFriendRequest: (friendUserId) => request("/api/v1/friends/requests", {
+    method: "POST",
+    body: { friend_user_id: friendUserId },
+  }),
+  listFriendRequests: () => request("/api/v1/friends/requests"),
+  acceptFriendRequest: (requestId) => request(`/api/v1/friends/requests/${requestId}/accept`, {
+    method: "POST",
+  }),
+  declineFriendRequest: (requestId) => request(`/api/v1/friends/requests/${requestId}/decline`, {
+    method: "POST",
+  }),
 };
