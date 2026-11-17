@@ -4,26 +4,35 @@ from sqlalchemy import func, select
 
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
+from app.models.friend_request import FriendRequest, FriendRequestStatus
 from app.models.invitation import Invitation, InvitationStatus
 from app.models.user import User
 
 PASSWORD = "correct-horse-battery"
 
 
-def register_and_login(client, email="owner@example.com"):
-    user_name = email.split("@")[0].replace(".", "_")
+def register_and_login(
+    client,
+    email="owner@example.com",
+    password=PASSWORD,
+    name="Bee",
+    surname="Chef",
+    user_name=None,
+):
+    if user_name is None:
+        user_name = email.split("@")[0].replace(".", "_")
     user_id = client.post(
         "/api/v1/auth/register",
         json={
             "email": email,
-            "password": PASSWORD,
-            "name": "Bee",
-            "surname": "Chef",
+            "password": password,
+            "name": name,
+            "surname": surname,
             "user_name": user_name,
         },
     ).json()["id"]
     token = client.post(
-        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
+        "/api/v1/auth/login", json={"email": email, "password": password}
     ).json()["access_token"]
     return user_id, {"Authorization": f"Bearer {token}"}
 
@@ -89,11 +98,12 @@ def add_user(db_session, email, user_name) -> User:
     return user
 
 
-class FakeFriends:
-    """Friend service double: only the given user ids count as friends."""
-
-    def __init__(self, *friend_ids):
-        self.friend_ids = set(friend_ids)
-
-    def are_friends(self, user_id, other_user_id):
-        return other_user_id in self.friend_ids
+def add_friendship(db_session, requester_user_id, recipient_user_id) -> FriendRequest:
+    request = FriendRequest(
+        requester_user_id=requester_user_id,
+        recipient_user_id=recipient_user_id,
+        status=FriendRequestStatus.ACCEPTED,
+    )
+    db_session.add(request)
+    db_session.commit()
+    return request

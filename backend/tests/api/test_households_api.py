@@ -3,16 +3,14 @@
 import pytest
 from sqlalchemy import func, select
 
-from app.api.friend_deps import get_friend_service
-from app.main import app
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.invitation import Invitation, InvitationStatus
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
 from tests.helpers import (
-    FakeFriends,
     add_household,
+    add_friendship,
     add_invitation,
     add_member,
     count_rows,
@@ -389,16 +387,10 @@ def test_delete_household_without_token_returns_401(client, db_session):
 # ---------- create invitation ----------
 
 
-@pytest.fixture
-def no_friends():
-    app.dependency_overrides[get_friend_service] = lambda: FakeFriends()
-    yield
-    app.dependency_overrides.pop(get_friend_service, None)
-
-
 def test_owner_can_invite_a_friend(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     maya_id, _ = register_and_login(client, email="maya@example.com")
+    add_friendship(db_session, owner_id, maya_id)
     household = add_household(db_session, owner_id)
 
     response = client.post(
@@ -424,6 +416,7 @@ def test_owner_can_invite_a_friend(client, db_session):
 def test_cannot_invite_same_friend_twice_while_pending(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     maya_id, _ = register_and_login(client, email="maya@example.com")
+    add_friendship(db_session, owner_id, maya_id)
     household = add_household(db_session, owner_id)
     url = invitations_url(household.id)
 
@@ -443,6 +436,7 @@ def test_cannot_invite_same_friend_twice_while_pending(client, db_session):
 def test_can_invite_again_after_previous_invitation_was_declined(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     maya_id, _ = register_and_login(client, email="maya@example.com")
+    add_friendship(db_session, owner_id, maya_id)
     household = add_household(db_session, owner_id)
     add_invitation(
         db_session, household.id, owner_id, maya_id, status=InvitationStatus.DECLINED
@@ -463,6 +457,7 @@ def test_can_invite_again_after_previous_invitation_was_declined(client, db_sess
 def test_cannot_invite_existing_member(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     member_id, _ = register_and_login(client, email="member@example.com")
+    add_friendship(db_session, owner_id, member_id)
     household = add_household(db_session, owner_id)
     add_member(db_session, member_id, household.id)
 
@@ -499,6 +494,7 @@ def test_cannot_invite_yourself(client, db_session):
 def test_can_invite_user_who_belongs_to_another_household(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     maya_id, _ = register_and_login(client, email="maya@example.com")
+    add_friendship(db_session, owner_id, maya_id)
     household = add_household(db_session, owner_id)
     add_household(db_session, maya_id, name="Maya House")
 
@@ -511,7 +507,7 @@ def test_can_invite_user_who_belongs_to_another_household(client, db_session):
     assert response.status_code == 201
 
 
-def test_cannot_invite_a_user_who_is_not_a_friend(client, db_session, no_friends):
+def test_cannot_invite_a_user_who_is_not_a_friend(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
