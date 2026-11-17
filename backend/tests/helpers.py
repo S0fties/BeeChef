@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.invitation import Invitation, InvitationStatus
+from app.models.user import User
 
 PASSWORD = "correct-horse-battery"
 
@@ -73,3 +74,16 @@ def add_invitation(
 def count_rows(db_session, model, *conditions) -> int:
     stmt = select(func.count()).select_from(model).where(*conditions)
     return db_session.scalar(stmt)
+
+
+def add_user(db_session, email, user_name) -> User:
+    user = User(
+        email=email,
+        hashed_password="hash",
+        name="Bee",
+        surname="Chef",
+        user_name=user_name,
+    )
+    db_session.add(user)
+    db_session.commit()
+    return user
