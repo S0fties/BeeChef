@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.api.routes import auth, media, inventory, items, households, invitations
+from app.api.routes import auth, media, inventory, items, households, invitations, friends
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
 
@@ -106,6 +106,7 @@ app.include_router(items.router)
 app.include_router(inventory.router)
 app.include_router(households.router)
 app.include_router(invitations.router)
+app.include_router(friends.router)
 app.include_router(media.router)
 
 

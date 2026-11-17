@@ -12,9 +12,9 @@ from app.models.household_member import HouseholdMember
 from app.models.invitation import Invitation, InvitationStatus
 from app.schemas.invitation import InvitationCreate
 from app.services import invitation_service
-from app.services.friend_service import MockFriendService
+from app.services.friend_service import DatabaseFriendService
 from tests.helpers import (
-    FakeFriends,
+    add_friendship,
     add_household,
     add_invitation,
     add_member,
@@ -51,16 +51,17 @@ def scenario(db_session):
     )
 
 
-def invite(db_session, scenario, friend_id, friends=None):
+def invite(db_session, scenario, friend_id):
     return invitation_service.create_invitation(
         db_session,
         scenario.membership,
         InvitationCreate(friend_user_id=friend_id),
-        friends if friends is not None else MockFriendService(),
+        DatabaseFriendService(db_session),
     )
 
 
 def test_create_invitation_stores_the_friend_as_invitee(db_session, scenario):
+    add_friendship(db_session, scenario.owner.id, scenario.friend.id)
     invitation = invite(db_session, scenario, scenario.friend.id)
 
     assert invitation.invitee_user_id == scenario.friend.id
@@ -71,7 +72,7 @@ def test_create_invitation_stores_the_friend_as_invitee(db_session, scenario):
 
 def test_create_invitation_rejects_a_user_who_is_not_a_friend(db_session, scenario):
     with pytest.raises(HTTPException) as exc_info:
-        invite(db_session, scenario, scenario.friend.id, friends=FakeFriends())
+        invite(db_session, scenario, scenario.friend.id)
 
     assert exc_info.value.status_code == 404
     assert exc_info.value.detail == "Friend not found"
@@ -90,6 +91,7 @@ def test_create_invitation_rejects_an_unknown_user_with_the_same_error(
 
 
 def test_create_invitation_rejects_an_existing_member(db_session, scenario):
+    add_friendship(db_session, scenario.owner.id, scenario.friend.id)
     add_member(db_session, scenario.friend.id, scenario.household.id)
 
     with pytest.raises(HTTPException) as exc_info:
@@ -100,6 +102,7 @@ def test_create_invitation_rejects_an_existing_member(db_session, scenario):
 
 
 def test_create_invitation_rejects_a_second_pending_invitation(db_session, scenario):
+    add_friendship(db_session, scenario.owner.id, scenario.friend.id)
     add_invitation(
         db_session, scenario.household.id, scenario.owner.id, scenario.friend.id
     )
@@ -117,7 +120,7 @@ def test_friend_check_runs_before_membership_check(db_session, scenario):
     add_member(db_session, scenario.friend.id, scenario.household.id)
 
     with pytest.raises(HTTPException) as exc_info:
-        invite(db_session, scenario, scenario.friend.id, friends=FakeFriends())
+        invite(db_session, scenario, scenario.friend.id)
 
     assert exc_info.value.status_code == 404
 
