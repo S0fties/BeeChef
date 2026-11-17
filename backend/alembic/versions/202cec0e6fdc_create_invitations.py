@@ -24,7 +24,7 @@ def upgrade() -> None:
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("household_id", sa.Integer(), nullable=False),
         sa.Column("invited_by_user_id", sa.Integer(), nullable=False),
-        sa.Column("invitee_email", sa.String(length=255), nullable=False),
+        sa.Column("invitee_user_id", sa.Integer(), nullable=False),
         sa.Column(
             "status",
             sa.Enum("pending", "accepted", "declined", name="invitation_status"),
@@ -38,14 +38,15 @@ def upgrade() -> None:
         ),
         sa.ForeignKeyConstraint(["household_id"], ["households.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["invited_by_user_id"], ["users.id"], ondelete="CASCADE"),
+        sa.ForeignKeyConstraint(["invitee_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(op.f("ix_invitations_household_id"), "invitations", ["household_id"], unique=False)
-    op.create_index(op.f("ix_invitations_invitee_email"), "invitations", ["invitee_email"], unique=False)
+    op.create_index(op.f("ix_invitations_invitee_user_id"), "invitations", ["invitee_user_id"], unique=False)
     op.create_index(
-        "uq_invitations_pending_household_email",
+        "uq_invitations_pending_household_invitee",
         "invitations",
-        ["household_id", "invitee_email"],
+        ["household_id", "invitee_user_id"],
         unique=True,
         postgresql_where=sa.text("status = 'pending'"),
     )
@@ -53,11 +54,11 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_index(
-        "uq_invitations_pending_household_email",
+        "uq_invitations_pending_household_invitee",
         table_name="invitations",
         postgresql_where=sa.text("status = 'pending'"),
     )
-    op.drop_index(op.f("ix_invitations_invitee_email"), table_name="invitations")
+    op.drop_index(op.f("ix_invitations_invitee_user_id"), table_name="invitations")
     op.drop_index(op.f("ix_invitations_household_id"), table_name="invitations")
     op.drop_table("invitations")
     op.execute("DROP TYPE invitation_status")

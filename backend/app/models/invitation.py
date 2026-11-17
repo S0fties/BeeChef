@@ -1,9 +1,9 @@
-"""Invitation ORM model: an invitation for a person to join a household."""
+"""Invitation ORM model: an invitation for a user to join a household."""
 
 import enum
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, func, text
+from sqlalchemy import DateTime, ForeignKey, Index, func, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,20 +19,16 @@ class InvitationStatus(str, enum.Enum):
 
 
 class Invitation(Base):
-    """An invitation addressed to an email to join a household as a member.
-
-    The invitee is identified by email because they may not have an account
-    yet. Emails are stored lowercase to match ``users.email``.
-    """
+    """An invitation for a registered user (a friend) to join a household as a member."""
 
     __tablename__ = "invitations"
 
-    # At most one open invitation per (household, email); closed ones stay as history.
+    # At most one open invitation per (household, invitee); closed ones stay as history.
     __table_args__ = (
         Index(
-            "uq_invitations_pending_household_email",
+            "uq_invitations_pending_household_invitee",
             "household_id",
-            "invitee_email",
+            "invitee_user_id",
             unique=True,
             postgresql_where=text("status = 'pending'"),
         ),
@@ -51,7 +47,11 @@ class Invitation(Base):
         ForeignKey("users.id", ondelete="CASCADE")
     )
 
-    invitee_email: Mapped[str] = mapped_column(String(255), index=True)
+    # Deleting the invitee's account removes the invitations they received.
+    invitee_user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        index=True,
+    )
 
     status: Mapped[InvitationStatus] = mapped_column(
         SAEnum(

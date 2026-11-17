@@ -4,13 +4,15 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.api.friend_deps import get_friend_service
 from app.api.household_deps import get_household_membership, require_owner
 from app.db.session import get_db
 from app.models.household_member import HouseholdMember
 from app.models.user import User
 from app.schemas.household import HouseholdCreate, HouseholdRead, HouseholdUpdate
-from app.services import household_service, invitation_service
 from app.schemas.invitation import InvitationCreate, InvitationRead
+from app.services import household_service, invitation_service
+from app.services.friend_service import FriendService
 
 router = APIRouter(prefix="/api/v1/households", tags=["households"])
 
@@ -39,6 +41,7 @@ def get_household(
 ):
     return household_service.get_household(db, membership)
 
+
 @router.patch("/{household_id}", response_model=HouseholdRead)
 def update_household(
     payload: HouseholdUpdate,
@@ -65,5 +68,6 @@ def create_invitation(
     payload: InvitationCreate,
     membership: HouseholdMember = Depends(require_owner),
     db: Session = Depends(get_db),
+    friends: FriendService = Depends(get_friend_service),
 ):
-    return invitation_service.create_invitation(db, membership, payload)
+    return invitation_service.create_invitation(db, membership, payload, friends)

@@ -57,13 +57,13 @@ def add_invitation(
     db_session,
     household_id,
     invited_by_user_id,
-    email,
+    invitee_user_id,
     status=InvitationStatus.PENDING,
 ) -> Invitation:
     invitation = Invitation(
         household_id=household_id,
         invited_by_user_id=invited_by_user_id,
-        invitee_email=email,
+        invitee_user_id=invitee_user_id,
         status=status,
     )
     db_session.add(invitation)
@@ -87,3 +87,13 @@ def add_user(db_session, email, user_name) -> User:
     db_session.add(user)
     db_session.commit()
     return user
+
+
+class FakeFriends:
+    """Friend service double: only the given user ids count as friends."""
+
+    def __init__(self, *friend_ids):
+        self.friend_ids = set(friend_ids)
+
+    def are_friends(self, user_id, other_user_id):
+        return other_user_id in self.friend_ids

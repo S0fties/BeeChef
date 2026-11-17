@@ -2,20 +2,16 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.invitation import InvitationStatus
 
 
 class InvitationCreate(BaseModel):
-    """Payload for inviting a person to a household by email."""
+    """Payload for inviting a friend to a household."""
 
-    email: EmailStr
-
-    @field_validator("email")
-    @classmethod
-    def normalize_email(cls, value: str) -> str:
-        return value.lower()
+    # User id of the friend being invited.
+    friend_user_id: int = Field(gt=0)
 
 
 class InvitationRead(BaseModel):
@@ -25,7 +21,7 @@ class InvitationRead(BaseModel):
 
     id: int
     household_id: int
-    invitee_email: str
+    invitee_user_id: int
     status: InvitationStatus
     created_at: datetime
 

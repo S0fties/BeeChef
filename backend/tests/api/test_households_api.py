@@ -3,12 +3,21 @@
 import pytest
 from sqlalchemy import func, select
 
+from app.api.friend_deps import get_friend_service
+from app.main import app
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.invitation import Invitation, InvitationStatus
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
-from tests.helpers import add_household, add_member, count_rows, register_and_login
+from tests.helpers import (
+    FakeFriends,
+    add_household,
+    add_invitation,
+    add_member,
+    count_rows,
+    register_and_login,
+)
 
 HOUSEHOLDS_URL = "/api/v1/households"
 
@@ -379,13 +388,22 @@ def test_delete_household_without_token_returns_401(client, db_session):
 
 # ---------- create invitation ----------
 
-def test_owner_can_invite_by_email(client, db_session):
-    owner_id, headers = register_and_login(client)
+
+@pytest.fixture
+def no_friends():
+    app.dependency_overrides[get_friend_service] = lambda: FakeFriends()
+    yield
+    app.dependency_overrides.pop(get_friend_service, None)
+
+
+def test_owner_can_invite_a_friend(client, db_session):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
 
     response = client.post(
         invitations_url(household.id),
-        json={"email": "maya@example.com"},
+        json={"friend_user_id": maya_id},
         headers=headers,
     )
 
@@ -393,7 +411,8 @@ def test_owner_can_invite_by_email(client, db_session):
     body = response.json()
     assert isinstance(body["id"], int)
     assert body["household_id"] == household.id
-    assert body["invitee_email"] == "maya@example.com"
+    assert body["invitee_user_id"] == maya_id
+    assert "invitee_email" not in body
     assert body["status"] == "pending"
     assert body["created_at"] is not None
 
@@ -402,32 +421,19 @@ def test_owner_can_invite_by_email(client, db_session):
     assert saved.status == InvitationStatus.PENDING
 
 
-def test_invitation_email_is_normalized_to_lowercase(client, db_session):
-    owner_id, headers = register_and_login(client)
-    household = add_household(db_session, owner_id)
-
-    response = client.post(
-        invitations_url(household.id),
-        json={"email": "Maya@Example.COM"},
-        headers=headers,
-    )
-
-    assert response.status_code == 201
-    assert response.json()["invitee_email"] == "maya@example.com"
-
-
-def test_cannot_invite_same_email_twice_while_pending(client, db_session):
-    owner_id, headers = register_and_login(client)
+def test_cannot_invite_same_friend_twice_while_pending(client, db_session):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
     url = invitations_url(household.id)
 
-    first = client.post(url, json={"email": "maya@example.com"}, headers=headers)
-    second = client.post(url, json={"email": "MAYA@example.com"}, headers=headers)
+    first = client.post(url, json={"friend_user_id": maya_id}, headers=headers)
+    second = client.post(url, json={"friend_user_id": maya_id}, headers=headers)
 
     assert first.status_code == 201
     assert second.status_code == 409
     assert second.json() == {
-        "detail": "A pending invitation already exists for this email"
+        "detail": "A pending invitation already exists for this user"
     }
     assert (
         count_rows(db_session, Invitation, Invitation.household_id == household.id) == 1
@@ -435,21 +441,16 @@ def test_cannot_invite_same_email_twice_while_pending(client, db_session):
 
 
 def test_can_invite_again_after_previous_invitation_was_declined(client, db_session):
-    owner_id, headers = register_and_login(client)
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
-    db_session.add(
-        Invitation(
-            household_id=household.id,
-            invited_by_user_id=owner_id,
-            invitee_email="maya@example.com",
-            status=InvitationStatus.DECLINED,
-        )
+    add_invitation(
+        db_session, household.id, owner_id, maya_id, status=InvitationStatus.DECLINED
     )
-    db_session.commit()
 
     response = client.post(
         invitations_url(household.id),
-        json={"email": "maya@example.com"},
+        json={"friend_user_id": maya_id},
         headers=headers,
     )
 
@@ -459,23 +460,37 @@ def test_can_invite_again_after_previous_invitation_was_declined(client, db_sess
     )
 
 
-@pytest.mark.parametrize(
-    "email",
-    ["member@example.com", "MEMBER@example.com", "owner@example.com"],
-    ids=["member", "member-uppercase", "owner-self"],
-)
-def test_cannot_invite_existing_member(client, db_session, email):
+def test_cannot_invite_existing_member(client, db_session):
     owner_id, headers = register_and_login(client, email="owner@example.com")
     member_id, _ = register_and_login(client, email="member@example.com")
     household = add_household(db_session, owner_id)
     add_member(db_session, member_id, household.id)
 
     response = client.post(
-        invitations_url(household.id), json={"email": email}, headers=headers
+        invitations_url(household.id),
+        json={"friend_user_id": member_id},
+        headers=headers,
     )
 
     assert response.status_code == 409
     assert response.json() == {"detail": "User is already a member of this household"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
+def test_cannot_invite_yourself(client, db_session):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"friend_user_id": owner_id},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Friend not found"}
     assert (
         count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
     )
@@ -489,22 +504,58 @@ def test_can_invite_user_who_belongs_to_another_household(client, db_session):
 
     response = client.post(
         invitations_url(household.id),
-        json={"email": "maya@example.com"},
+        json={"friend_user_id": maya_id},
         headers=headers,
     )
 
     assert response.status_code == 201
 
 
+def test_cannot_invite_a_user_who_is_not_a_friend(client, db_session, no_friends):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"friend_user_id": maya_id},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Friend not found"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
+def test_cannot_invite_an_unknown_user(client, db_session):
+    owner_id, headers = register_and_login(client, email="owner@example.com")
+    household = add_household(db_session, owner_id)
+
+    response = client.post(
+        invitations_url(household.id),
+        json={"friend_user_id": 999_999},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Friend not found"}
+    assert (
+        count_rows(db_session, Invitation, Invitation.household_id == household.id) == 0
+    )
+
+
 def test_member_cannot_invite(client, db_session):
     owner_id, _ = register_and_login(client, email="owner@example.com")
     member_id, member_headers = register_and_login(client, email="member@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
     add_member(db_session, member_id, household.id)
 
     response = client.post(
         invitations_url(household.id),
-        json={"email": "maya@example.com"},
+        json={"friend_user_id": maya_id},
         headers=member_headers,
     )
 
@@ -518,11 +569,12 @@ def test_member_cannot_invite(client, db_session):
 def test_non_member_cannot_invite(client, db_session):
     owner_id, _ = register_and_login(client, email="owner@example.com")
     _, outsider_headers = register_and_login(client, email="outsider@example.com")
+    maya_id, _ = register_and_login(client, email="maya@example.com")
     household = add_household(db_session, owner_id)
 
     response = client.post(
         invitations_url(household.id),
-        json={"email": "maya@example.com"},
+        json={"friend_user_id": maya_id},
         headers=outsider_headers,
     )
 
@@ -538,7 +590,7 @@ def test_invite_without_token_returns_401(client, db_session):
     household = add_household(db_session, owner_id)
 
     response = client.post(
-        invitations_url(household.id), json={"email": "maya@example.com"}
+        invitations_url(household.id), json={"friend_user_id": 1}
     )
 
     assert response.status_code == 401
@@ -546,10 +598,24 @@ def test_invite_without_token_returns_401(client, db_session):
 
 @pytest.mark.parametrize(
     "payload",
-    [{}, {"email": ""}, {"email": "plainaddress"}, {"email": "user@"}],
-    ids=["missing-email", "empty-email", "no-at-sign", "no-domain"],
+    [
+        {},
+        {"friend_user_id": 0},
+        {"friend_user_id": -1},
+        {"friend_user_id": "abc"},
+        {"friend_user_id": None},
+        {"email": "maya@example.com"},
+    ],
+    ids=[
+        "missing-id",
+        "zero-id",
+        "negative-id",
+        "non-numeric-id",
+        "null-id",
+        "old-email-payload",
+    ],
 )
-def test_invite_with_invalid_email_returns_400(client, db_session, payload):
+def test_invite_with_invalid_payload_returns_400(client, db_session, payload):
     owner_id, headers = register_and_login(client)
     household = add_household(db_session, owner_id)
 
