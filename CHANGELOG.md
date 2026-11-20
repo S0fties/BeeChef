@@ -1,0 +1,9 @@
+# Project Plan Changelog
+
+This document tracks deviations from the initial project plan, System Requirements Specification, and architectural baselines.
+
+| Date | Type | Affected Area | Original Plan | Updated Plan / Deviation | Reason & Impact |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 2026-11-15 | **Schedule Delay** | Project Timeline / Gantt Chart | Tasks were scheduled to progress according to the baseline weekly Gantt chart without interruption. | All ongoing development tasks have been shifted forward by 1 week. | Team development velocity was paused for 1 week due to university midterm examinations. No scope was dropped; subsequent deadlines adjusted by +1 week. |
+| 2026-11-15 | **Requirement Refinement** | Inventory / Low-Stock Logic | Low-stock threshold calculation method changed. | The system analyzes the user's recipe and cooking history to automatically determine essential ingredients and flag low-stock items accordingly. | Finalized personalized business logic to unblock database schema updates, backend query design, and inventory alert implementation. |
+| 2026-11-17 | **Scope Addition** | Social Feed & Household Management | No user-to-user friend system existed; the social feed was purely global, and any user could be invited directly to a Household. | Added a friend management system, split the social feed into two views (**Global Feed** and **Friends Feed**), and restricted Household member invitations exclusively to accepted friends. | Enhances user privacy and social engagement while preventing spam invitations in shared Household spaces. Requires new friendship database tables, feed filtering endpoints, and updated invite validation. |

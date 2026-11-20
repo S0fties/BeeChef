@@ -5,41 +5,22 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.db.session import get_db
-from app.main import app
 from app.services.storage import storage_service
-
-
-@pytest.fixture
-def client(db_session):
-    """Test client overriding the database session."""
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
+from tests.helpers import register_and_login
 
 
 @pytest.fixture
 def auth_headers(client: TestClient) -> dict:
     """Register, login, and return authorization Bearer header."""
-    client.post(
-        "/api/v1/auth/register",
-        json={
-            "email": "media_tester@example.com",
-            "password": "strong-password-123",
-            "name": "Media",
-            "surname": "Tester",
-            "user_name": "Tester31",
-        },
+    _, headers = register_and_login(
+        client,
+        email="media_tester@example.com",
+        password="strong-password-123",
+        name="Media",
+        surname="Tester",
+        user_name="Tester31",
     )
-    login_res = client.post(
-        "/api/v1/auth/login",
-        json={"email": "media_tester@example.com", "password": "strong-password-123"},
-    )
-    token = login_res.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+    return headers
 
 
 # ---------------- TESTS ----------------

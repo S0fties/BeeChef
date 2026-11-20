@@ -1,55 +1,10 @@
 """API tests for household inventory (/api/v1/inventory) CRUD endpoints."""
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.db.session import get_db
-from app.main import app
-from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.item import Item, ItemType
+from tests.helpers import add_household, register_and_login
 
-PASSWORD = "correct-horse-battery"
 INVENTORY_URL = "/api/v1/inventory"
-
-
-@pytest.fixture
-def client(db_session):
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
-
-
-def register_and_login(client, email="chef@example.com", full_name="Bee Chef"):
-    username = email.split("@")[0].replace(".", "_")
-    user_res = client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "name": "Bee", "surname": "Chef", "user_name": username},
-    )
-    user_id = user_res.json()["id"]
-    token = client.post(
-        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
-    ).json()["access_token"]
-    return user_id, {"Authorization": f"Bearer {token}"}
-
-
-def create_household_for_user(
-    db_session,
-    user_id: int,
-    name: str = "BeeChef House",
-    role: HouseholdRole = HouseholdRole.OWNER,
-) -> Household:
-    house = Household(name=name)
-    db_session.add(house)
-    db_session.flush()
-    db_session.add(
-        HouseholdMember(user_id=user_id, household_id=house.id, role=role)
-    )
-    db_session.commit()
-    return house
 
 
 def seed_catalog_items(db_session):
@@ -85,8 +40,8 @@ def seed_catalog_items(db_session):
 
 def test_inventory_crud_lifecycle_and_default_unit(client, db_session):
     seed_catalog_items(db_session)
-    user_id, headers = register_and_login(client)
-    create_household_for_user(db_session, user_id)
+    user_id, headers = register_and_login(client, email="chef@example.com")
+    add_household(db_session, user_id, name="BeeChef House")
 
     # 1. Create quantity-tracked ingredient (omitting unit -> inherits Item.default_unit "g")
     create_res = client.post(
@@ -186,8 +141,8 @@ def test_household_isolation_and_membership_authorization(client, db_session):
     user2_id, headers2 = register_and_login(client, email="user2@example.com")
     member_id, member_headers = register_and_login(client, email="member@example.com")
 
-    house1 = create_household_for_user(db_session, user1_id, name="House 1")
-    create_household_for_user(db_session, user2_id, name="House 2")
+    house1 = add_household(db_session, user1_id, name="House 1")
+    add_household(db_session, user2_id, name="House 2")
 
     # Regular member of House 1 with MEMBER role
     db_session.add(
