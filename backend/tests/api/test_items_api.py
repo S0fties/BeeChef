@@ -1,45 +1,12 @@
 """API tests for shared catalog items (/api/v1/items) endpoints."""
 
-import pytest
-from fastapi.testclient import TestClient
-
-from app.db.session import get_db
-from app.main import app
 from app.models.household import Household
 from app.models.household_member import HouseholdMember, HouseholdRole
 from app.models.inventory_entry import InventoryEntry
 from app.models.item import Item, ItemType
+from tests.helpers import register_and_login
 
-PASSWORD = "correct-horse-battery"
 ITEMS_URL = "/api/v1/items"
-
-
-@pytest.fixture
-def client(db_session):
-    def override_get_db():
-        yield db_session
-
-    app.dependency_overrides[get_db] = override_get_db
-    yield TestClient(app)
-    app.dependency_overrides.clear()
-
-
-def register_and_login(client, email="chef@example.com"):
-    username = email.split("@")[0].replace(".", "_")
-    user_res = client.post(
-        "/api/v1/auth/register",
-        json={"email": email, "password": PASSWORD, "name": "Bee", "surname": "Chef", "user_name": username},
-    )
-    user_id = user_res.json()["id"]
-    token = client.post(
-        "/api/v1/auth/login", json={"email": email, "password": PASSWORD}
-    ).json()["access_token"]
-    return user_id, {"Authorization": f"Bearer {token}"}
-
-
-def get_auth_headers(client, email="chef@example.com"):
-    _, headers = register_and_login(client, email=email)
-    return headers
 
 
 def seed_sample_catalog(db_session):
@@ -124,7 +91,7 @@ def test_create_catalog_item_requires_auth_and_returns_409_on_duplicate(client, 
     unauth = client.post(ITEMS_URL, json=payload)
     assert unauth.status_code == 401
 
-    headers = get_auth_headers(client)
+    _, headers = register_and_login(client, email="chef@example.com")
     res = client.post(ITEMS_URL, json=payload, headers=headers)
     assert res.status_code == 201
     body = res.json()
@@ -140,7 +107,7 @@ def test_create_catalog_item_requires_auth_and_returns_409_on_duplicate(client, 
 
 
 def test_create_appliance_forces_default_unit_none(client):
-    headers = get_auth_headers(client)
+    _, headers = register_and_login(client, email="chef@example.com")
     res = client.post(
         ITEMS_URL,
         json={

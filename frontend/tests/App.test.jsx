@@ -17,6 +17,12 @@ vi.mock('../src/services/api', async (importOriginal) => {
       login: vi.fn(),
       me: vi.fn(),
       changePassword: vi.fn(),
+      listFriendRequests: vi.fn(),
+      searchUsers: vi.fn(),
+      sendFriendRequest: vi.fn(),
+      acceptFriendRequest: vi.fn(),
+      declineFriendRequest: vi.fn(),
+      listFriends: vi.fn(),
     },
   }
 })
@@ -33,6 +39,7 @@ function renderApp(initialPath = '/', { authenticated = true } = {}) {
   if (authenticated) {
     localStorage.setItem('access_token', 'test-token')
     api.me.mockResolvedValue(testUser)
+    api.listFriendRequests.mockResolvedValue([])
   }
   return render(
     <MemoryRouter initialEntries={[initialPath]}>
@@ -87,8 +94,15 @@ describe('App navigation (logged in)', () => {
     )
   })
 
+  it('shows only the feed tabs on the Social page', async () => {
+    renderApp('/social')
+
+    expect(await screen.findByRole('tab', { name: 'Global' })).toBeInTheDocument()
+    expect(screen.getByRole('tab', { name: 'Friends' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Social Media' })).not.toBeInTheDocument()
+  })
+
   it.each([
-    { label: 'Social', heading: 'Social Media' },
     { label: 'Inventory', heading: 'Inventory' },
     { label: 'Recipe Generator', heading: 'Recipe Generator' },
     { label: 'Shopping', heading: 'Shopping' },
