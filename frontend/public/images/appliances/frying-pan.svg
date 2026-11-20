@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="fp-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fp-pan" x1="18" y1="30" x2="78" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#374151"/>
+      <stop offset="50%" stop-color="#1f2937"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="fp-rim" x1="14" y1="35" x2="76" y2="65" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f3f4f6"/>
+      <stop offset="50%" stop-color="#9ca3af"/>
+      <stop offset="100%" stop-color="#d1d5db"/>
+    </linearGradient>
+    <linearGradient id="fp-wood" x1="76" y1="70" x2="112" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="50%" stop-color="#92400e"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="48" cy="86" rx="34" ry="8" fill="url(#fp-shadow)"/>
+  <!-- Pan underside -->
+  <path d="M14 50C14 68 27 80 46 80C65 80 78 68 78 50H14Z" fill="#111827"/>
+  <!-- Outer stainless rim -->
+  <ellipse cx="46" cy="49" rx="32" ry="18" fill="url(#fp-rim)" stroke="#6b7280" stroke-width="0.9"/>
+  <!-- Non-stick interior well -->
+  <ellipse cx="46" cy="49" rx="29" ry="15.5" fill="url(#fp-pan)"/>
+  <ellipse cx="46" cy="51" rx="22" ry="11" fill="#111827" stroke="#374151" stroke-width="0.7"/>
+  <!-- Subtle cooking surface shine -->
+  <path d="M30 46C35 42 48 41 56 43" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2" stroke-linecap="round"/>
+  <!-- Metal neck & rivets -->
+  <path d="M72 60L84 68L80 74L68 65Z" fill="#9ca3af" stroke="#4b5563" stroke-width="0.7"/>
+  <circle cx="74" cy="64" r="1.2" fill="#374151"/>
+  <circle cx="78" cy="67" r="1.2" fill="#374151"/>
+  <!-- Ergonomic wooden handle -->
+  <path d="M81 67L111 87C113.5 88.8 114 92 112 94.5C110 97 106.5 97 104 95L75 74L81 67Z" fill="url(#fp-wood)" stroke="#451a03" stroke-width="0.8"/>
+  <!-- Hanging eyelet -->
+  <circle cx="107" cy="91" r="2" fill="#fbfaf6" stroke="#451a03" stroke-width="0.8"/>
+</svg>

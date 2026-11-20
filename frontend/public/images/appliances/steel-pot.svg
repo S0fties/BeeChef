@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="sp-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sp-steel" x1="25" y1="45" x2="95" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9ca3af"/>
+      <stop offset="28%" stop-color="#ffffff"/>
+      <stop offset="58%" stop-color="#d1d5db"/>
+      <stop offset="85%" stop-color="#6b7280"/>
+      <stop offset="100%" stop-color="#9ca3af"/>
+    </linearGradient>
+    <linearGradient id="sp-glass" x1="30" y1="30" x2="90" y2="52" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e0f2fe" stop-opacity="0.8"/>
+      <stop offset="50%" stop-color="#bae6fd" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#64748b" stop-opacity="0.5"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="101" rx="35" ry="6" fill="url(#sp-shadow)"/>
+  <!-- Side loop stainless handles -->
+  <path d="M26 55H17C13 55 11 57.5 11 60.5C11 63.5 13 66 17 66H26" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>
+  <path d="M94 55H103C107 55 109 57.5 109 60.5C109 63.5 107 66 103 66H94" stroke="#6b7280" stroke-width="4" stroke-linecap="round"/>
+  <!-- Pot body -->
+  <path d="M25 49H95V88C95 94 84 98 60 98C36 98 25 94 25 88V49Z" fill="url(#sp-steel)" stroke="#6b7280" stroke-width="1"/>
+  <!-- Vertical specular reflections -->
+  <path d="M34 53V91" stroke="#ffffff" stroke-opacity="0.7" stroke-width="5" stroke-linecap="round"/>
+  <path d="M43 53V92" stroke="#ffffff" stroke-opacity="0.3" stroke-width="2" stroke-linecap="round"/>
+  <!-- Rim lip -->
+  <ellipse cx="60" cy="49" rx="36" ry="6" fill="#e5e7eb" stroke="#6b7280" stroke-width="1"/>
+  <ellipse cx="60" cy="49" rx="32" ry="4.5" fill="#4b5563"/>
+  <!-- Tempered glass dome lid -->
+  <path d="M27 48C29 33 43 29 60 29C77 29 91 33 93 48C93 51 78 53 60 53C42 53 27 51 27 48Z" fill="url(#sp-glass)" stroke="#9ca3af" stroke-width="1.2"/>
+  <path d="M36 42C39 35 48 33 54 32" stroke="#ffffff" stroke-opacity="0.75" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- Steam hole -->
+  <circle cx="72" cy="39" r="1.4" fill="#475569"/>
+  <!-- Lid top handle knob -->
+  <rect x="52" y="22" width="16" height="5" rx="2.5" fill="#1f2937"/>
+  <rect x="56" y="26" width="8" height="4" rx="1" fill="#9ca3af"/>
+</svg>
