@@ -1,3 +1,5 @@
+import { getToken } from '../services/api.js'
+
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 const API_V1_BASE = `${API_ORIGIN}/api/v1`
 const AUTH_BASE = `${API_ORIGIN}/auth`
@@ -40,9 +42,11 @@ export function formatCategoryLabel(category) {
     .join(' ')
 }
 
+// Prefer the real login token ("access_token", set by AuthContext); fall back to the
+// legacy demo-session key ("token") used by quickAuthenticate.
 export function getStoredToken() {
   try {
-    return localStorage.getItem('token') || ''
+    return getToken() || localStorage.getItem('token') || ''
   } catch {
     return ''
   }

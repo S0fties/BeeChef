@@ -13,3 +13,6 @@ alembic
 psycopg[binary]
 
 python-multipart
+
+# --- AI & Vision ---
+google-genai
