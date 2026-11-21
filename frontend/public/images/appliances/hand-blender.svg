@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="hb-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hb-grip" x1="48" y1="12" x2="72" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#374151"/>
+      <stop offset="50%" stop-color="#1f2937"/>
+      <stop offset="100%" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="hb-steel" x1="54" y1="58" x2="66" y2="105" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9ca3af"/>
+      <stop offset="35%" stop-color="#f9fafb"/>
+      <stop offset="70%" stop-color="#d1d5db"/>
+      <stop offset="100%" stop-color="#6b7280"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="108" rx="18" ry="4.5" fill="url(#hb-shadow)"/>
+  <!-- Power cord loop hint at top -->
+  <path d="M60 12V8C60 6 63 5 66 7" stroke="#374151" stroke-width="2" stroke-linecap="round"/>
+  <!-- Ergonomic motor handle -->
+  <path d="M51 16C51 13 55 11 60 11C65 11 69 13 69 16L67 56H53L51 16Z" fill="url(#hb-grip)" stroke="#4b5563" stroke-width="0.8"/>
+  <!-- Brushed steel front inset with speed buttons -->
+  <rect x="55" y="18" width="10" height="24" rx="5" fill="#d1d5db"/>
+  <rect x="57" y="21" width="6" height="6" rx="3" fill="#2563eb"/>
+  <rect x="57" y="30" width="6" height="6" rx="3" fill="#1f2937"/>
+  <!-- Metallic collar -->
+  <rect x="53" y="55" width="14" height="5" rx="1.5" fill="url(#hb-steel)" stroke="#6b7280" stroke-width="0.7"/>
+  <!-- Stainless blending wand shaft -->
+  <rect x="56.5" y="60" width="7" height="31" fill="url(#hb-steel)" stroke="#9ca3af" stroke-width="0.6"/>
+  <!-- Flared anti-splash bell guard -->
+  <path d="M56.5 90L46 103C46 105 52 106.5 60 106.5C68 106.5 74 105 74 103L63.5 90H56.5Z" fill="url(#hb-steel)" stroke="#6b7280" stroke-width="0.8"/>
+  <!-- Blade arch cut-outs -->
+  <path d="M52 103C52 100 54 98 56 98C58 98 59 100 59 103" fill="#1f2937"/>
+  <path d="M61 103C61 100 62 98 64 98C66 98 68 100 68 103" fill="#1f2937"/>
+</svg>

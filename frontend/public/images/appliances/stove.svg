@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="st-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="st-deck" x1="18" y1="24" x2="104" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f3f4f6"/>
+      <stop offset="45%" stop-color="#d1d5db"/>
+      <stop offset="100%" stop-color="#9ca3af"/>
+    </linearGradient>
+    <linearGradient id="st-front" x1="12" y1="86" x2="108" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#4b5563"/>
+      <stop offset="100%" stop-color="#1f2937"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="102" rx="48" ry="6" fill="url(#st-shadow)"/>
+  <!-- Perspective stainless cooktop slab -->
+  <path d="M22 24C22.6 21.5 25 20 28 20H92C95 20 97.4 21.5 98 24L108 86H12L22 24Z" fill="url(#st-deck)" stroke="#6b7280" stroke-width="1"/>
+  <!-- Front beveled stainless/dark control apron -->
+  <path d="M12 86H108V94C108 96.5 106 98 103 98H17C14 98 12 96.5 12 94V86Z" fill="url(#st-front)"/>
+  <!-- Inner dark recessed well -->
+  <path d="M26 27H94L101 80H19L26 27Z" fill="#e5e7eb" fill-opacity="0.45" stroke="#9ca3af" stroke-width="0.8"/>
+
+  <!-- Burner 1 (Back Left - Medium) -->
+  <ellipse cx="42" cy="40" rx="12" ry="6.5" fill="#1f2937"/>
+  <ellipse cx="42" cy="40" rx="9" ry="4.5" stroke="#38bdf8" stroke-width="1.3" stroke-dasharray="2 1.5"/>
+  <ellipse cx="42" cy="39" rx="6" ry="3" fill="#374151"/>
+  <!-- Grate cross -->
+  <path d="M28 40H56M42 32V48" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Burner 2 (Back Right - Small) -->
+  <ellipse cx="78" cy="40" rx="10" ry="5.5" fill="#1f2937"/>
+  <ellipse cx="78" cy="39.5" rx="5" ry="2.6" fill="#374151"/>
+  <path d="M66 40H90M78 33V47" stroke="#111827" stroke-width="1.8" stroke-linecap="round"/>
+
+  <!-- Burner 3 (Front Left - Large Wok Burner with Blue Flame) -->
+  <ellipse cx="40" cy="64" rx="16" ry="9" fill="#1f2937"/>
+  <ellipse cx="40" cy="64" rx="13" ry="7" stroke="#38bdf8" stroke-width="1.6" stroke-dasharray="2.5 1.8"/>
+  <ellipse cx="40" cy="63" rx="8.5" ry="4.5" fill="#374151"/>
+  <path d="M22 64H58M40 53V75" stroke="#111827" stroke-width="2.4" stroke-linecap="round"/>
+
+  <!-- Burner 4 (Front Right - Medium) -->
+  <ellipse cx="80" cy="64" rx="13" ry="7.2" fill="#1f2937"/>
+  <ellipse cx="80" cy="63.5" rx="7" ry="3.8" fill="#374151"/>
+  <path d="M65 64H95M80 55V73" stroke="#111827" stroke-width="2.2" stroke-linecap="round"/>
+
+  <!-- Front Control Knobs -->
+  <circle cx="30" cy="92" r="3.8" fill="#d1d5db" stroke="#111827" stroke-width="0.8"/>
+  <circle cx="50" cy="92" r="3.8" fill="#d1d5db" stroke="#111827" stroke-width="0.8"/>
+  <circle cx="70" cy="92" r="3.8" fill="#d1d5db" stroke="#111827" stroke-width="0.8"/>
+  <circle cx="90" cy="92" r="3.8" fill="#d1d5db" stroke="#111827" stroke-width="0.8"/>
+  <path d="M30 89V92M50 89V92M70 89V92M90 89V92" stroke="#111827" stroke-width="1.1"/>
+</svg>

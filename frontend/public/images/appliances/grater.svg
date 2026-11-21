@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="gr-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.24"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gr-front" x1="34" y1="30" x2="72" y2="98" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f9fafb"/>
+      <stop offset="45%" stop-color="#d1d5db"/>
+      <stop offset="100%" stop-color="#9ca3af"/>
+    </linearGradient>
+    <linearGradient id="gr-side" x1="72" y1="30" x2="88" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9ca3af"/>
+      <stop offset="100%" stop-color="#4b5563"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="105" rx="28" ry="5.5" fill="url(#gr-shadow)"/>
+  <!-- Arched top handle -->
+  <path d="M47 32V21C47 17 51 15 60 15C69 15 73 17 73 21V32" stroke="#1f2937" stroke-width="6" stroke-linecap="round"/>
+  <!-- Top stainless cap -->
+  <path d="M42 29H78L86 35H34L42 29Z" fill="#e5e7eb" stroke="#6b7280" stroke-width="0.9"/>
+  <!-- Side perspective face -->
+  <path d="M72 35H86L90 96L74 101L72 35Z" fill="url(#gr-side)" stroke="#4b5563" stroke-width="0.8"/>
+  <!-- Front stainless face -->
+  <path d="M34 35H72L74 101H30L34 35Z" fill="url(#gr-front)" stroke="#6b7280" stroke-width="0.9"/>
+  <!-- Grater perforations grid -->
+  <g fill="#374151">
+    <circle cx="42" cy="46" r="2"/><circle cx="52" cy="46" r="2"/><circle cx="62" cy="46" r="2"/>
+    <circle cx="47" cy="54" r="2"/><circle cx="57" cy="54" r="2"/>
+    <circle cx="41" cy="62" r="2"/><circle cx="52" cy="62" r="2"/><circle cx="63" cy="62" r="2"/>
+    <circle cx="46" cy="70" r="2"/><circle cx="58" cy="70" r="2"/>
+    <circle cx="40" cy="78" r="2"/><circle cx="52" cy="78" r="2"/><circle cx="64" cy="78" r="2"/>
+    <circle cx="46" cy="86" r="2"/><circle cx="58" cy="86" r="2"/>
+  </g>
+  <!-- Fine holes on side face -->
+  <g fill="#1f2937">
+    <circle cx="79" cy="48" r="1.2"/><circle cx="80" cy="58" r="1.2"/><circle cx="81" cy="68" r="1.2"/><circle cx="82" cy="78" r="1.2"/><circle cx="83" cy="88" r="1.2"/>
+  </g>
+  <!-- Dark rubberized non-slip base rim -->
+  <path d="M29 97H74L91 93L90 98L74 103H29V97Z" fill="#1f2937"/>
+</svg>
