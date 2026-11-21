@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getApplianceImageUrl, getItemImageUrl } from '../src/api/inventory.js'
 import {
   applyDraft,
   buildInventoryChanges,
@@ -86,6 +87,18 @@ describe('inventoryEditor helpers', () => {
     expect(groups[0].total).toBe(3)
     expect(groups[0].subcategories.map((s) => s.subcategory)).toEqual(['CITRUS', 'TREE_FRUIT'])
     expect(groups[0].subcategories[0].items.map((i) => i.name)).toEqual(['Orange', 'Lemon'])
+  })
+
+  it('resolves built-in appliance product images and falls back to null for unknown appliances', () => {
+    expect(getApplianceImageUrl('Air Fryer')).toBe('/images/appliances/air-fryer.svg')
+    expect(getApplianceImageUrl('Turkish Coffee Pot')).toBe('/images/appliances/turkish-coffee-pot.svg')
+    expect(getApplianceImageUrl('Cast Iron Skillet')).toBe('/images/appliances/frying-pan.svg')
+    expect(getApplianceImageUrl('Immersion Blender')).toBe('/images/appliances/hand-blender.svg')
+    expect(getApplianceImageUrl('Espresso Machine')).toBeNull()
+
+    expect(getItemImageUrl(OVEN)).toBe('/images/appliances/oven.svg')
+    expect(getItemImageUrl(MILK)).toBe('https://www.themealdb.com/images/ingredients/Milk-small.png')
+    expect(getItemImageUrl(null)).toBeNull()
   })
 })
 

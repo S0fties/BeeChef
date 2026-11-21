@@ -15,6 +15,7 @@ from app.schemas.inventory import (
     InventoryEntryUpdate,
 )
 from app.schemas.item import ItemCreate, ItemRead, ItemUpdate
+from app.services import household_service
 
 
 # ---------- Catalog Item CRUD ----------
@@ -206,17 +207,7 @@ def resolve_user_household_id(
       ``required_roles``, raises **403 Forbidden**.
     """
     if household_id is not None:
-        membership = db.scalar(
-            select(HouseholdMember).where(
-                HouseholdMember.user_id == user.id,
-                HouseholdMember.household_id == household_id,
-            )
-        )
-        if membership is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Household not found",
-            )
+        membership = household_service.get_membership_or_404(db, user, household_id)
     else:
         membership = db.scalar(
             select(HouseholdMember)
