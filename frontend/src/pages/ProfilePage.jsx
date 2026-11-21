@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useAuth } from "../context/AuthContext"
+import { Link } from "react-router-dom"
 
 function ProfilePage() {
   const { user, logout, changePassword } = useAuth()
@@ -155,6 +156,14 @@ function ProfilePage() {
               </form>
             )}
           </div>
+          
+          {/* PREFERENCESSSSSSSSSSSSS*/}
+          <Link
+            to="/preferences"
+            className="block w-full rounded-lg bg-[#253b2d] px-4 py-2 text-center text-white transition-opacity hover:opacity-90 md:w-80"
+          >
+            Food Preferences
+          </Link>
 
           {/* Log out Button */}
           <button
