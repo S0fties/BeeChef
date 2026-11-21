@@ -113,7 +113,9 @@ function buildQuery(params = {}) {
 export async function quickAuthenticate({
   email = 'chef@beechef.com',
   password = 'beechef-demo-password',
-  full_name = 'BeeChef Demo User',
+  name = 'BeeChef Demo User',
+  sur_name = 'BeeChef Demo User',
+  user_name = 'BeeChef Demo User',
 } = {}) {
   // Try logging in first; if user doesn't exist yet, register and then log in.
   let loginRes = await fetch(`${AUTH_BASE}/login`, {
@@ -126,7 +128,7 @@ export async function quickAuthenticate({
     await fetch(`${AUTH_BASE}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name }),
+      body: JSON.stringify({ email, password, name, sur_name, user_name }),
     })
     loginRes = await fetch(`${AUTH_BASE}/login`, {
       method: 'POST',

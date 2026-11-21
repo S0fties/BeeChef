@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.api.routes import auth, media, inventory, items, households, invitations, friends
+from app.api.routes import preferences
+
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
 
@@ -55,10 +57,7 @@ app.add_middleware(
 settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
-from app.api.routes import auth, media
 from app.db.session import get_db
-
-
 
 from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
@@ -108,7 +107,7 @@ app.include_router(households.router)
 app.include_router(invitations.router)
 app.include_router(friends.router)
 app.include_router(media.router)
-
+app.include_router(preferences.router)
 
 # FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
 @app.exception_handler(RequestValidationError)

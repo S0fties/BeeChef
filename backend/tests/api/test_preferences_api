@@ -1,0 +1,168 @@
+"""Preferences endpoint tests."""
+
+import pytest
+
+from app.models.item import Item, ItemType  # adjust path
+
+BASE = "/api/v1/preferences"
+
+
+@pytest.fixture()
+def items(db):
+    rows = [
+        Item(id=71001, name="Almonds", item_type=ItemType.INGREDIENT,
+             category="NUTS", subcategory="TREE_NUTS", default_unit="g"),
+        Item(id=71002, name="Tomatoes", item_type=ItemType.INGREDIENT,
+             category="VEGETABLE", subcategory="FRUITING", default_unit="g"),
+        Item(id=71003, name="Minced Beef", item_type=ItemType.INGREDIENT,
+             category="MEAT", subcategory="BEEF", default_unit="g"),
+    ]
+    db.add_all(rows)
+    db.commit()
+    return rows
+
+
+def _pref(item_id, pref):
+    return {"item_id": item_id, "pref": pref}
+
+
+# ---------- Read / auth ----------
+
+def test_get_empty_preferences(client, auth_headers):
+    r = client.get(BASE, headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json() == {
+        "preferred": [], "restricted": [], "allergy_items": [], "allergy_labels": []
+    }
+
+
+def test_requires_authentication(client):
+    # Use 403 instead if your scheme is HTTPBearer
+    assert client.get(BASE).status_code == 401
+
+
+# ---------- Preferred / restricted items ----------
+
+def test_add_preferred_and_restricted(client, auth_headers, items):
+    body = {"preferences": [_pref(71001, "restricted"), _pref(71002, "preferred")]}
+    r = client.post(f"{BASE}/items", json=body, headers=auth_headers)
+
+    assert r.status_code == 200
+    data = r.json()
+    assert [i["id"] for i in data["restricted"]] == [71001]
+    assert [i["id"] for i in data["preferred"]] == [71002]
+    assert data["preferred"][0]["name"] == "Tomatoes"  # full item returned
+
+
+def test_upsert_changes_level(client, auth_headers, items):
+    client.post(f"{BASE}/items", json={"preferences": [_pref(71002, "preferred")]},
+                headers=auth_headers)
+    r = client.post(f"{BASE}/items", json={"preferences": [_pref(71002, "restricted")]},
+                    headers=auth_headers)
+
+    data = r.json()
+    assert data["preferred"] == []
+    assert [i["id"] for i in data["restricted"]] == [71002]
+
+
+def test_delete_item_preferences_resets_to_neutral(client, auth_headers, items):
+    client.post(f"{BASE}/items", json={"preferences": [_pref(71001, "restricted")]},
+                headers=auth_headers)
+    r = client.post(f"{BASE}/items/delete", json={"item_ids": [71001]},
+                    headers=auth_headers)
+
+    assert r.status_code == 200
+    assert r.json()["restricted"] == []
+
+
+def test_delete_nonexistent_is_idempotent(client, auth_headers, items):
+    r = client.post(f"{BASE}/items/delete", json={"item_ids": [71003]},
+                    headers=auth_headers)
+    assert r.status_code == 200
+
+
+def test_add_unknown_item_returns_422(client, auth_headers, items):
+    r = client.post(f"{BASE}/items", json={"preferences": [_pref(99999, "preferred")]},
+                    headers=auth_headers)
+    assert r.status_code == 422
+    assert "99999" in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"preferences": [_pref(123, "preferred")]},                      # not 5 digits
+        {"preferences": [_pref(71001, "neutral")]},                      # invalid level
+        {"preferences": [_pref(71001, "preferred"), _pref(71001, "restricted")]},  # duplicate
+        {"preferences": []},                                             # empty
+    ],
+)
+def test_add_invalid_payload_returns_422(client, auth_headers, items, body):
+    assert client.post(f"{BASE}/items", json=body, headers=auth_headers).status_code == 422
+
+
+# ---------- Allergy items ----------
+
+def test_add_and_delete_allergy_items(client, auth_headers, items):
+    r = client.post(f"{BASE}/allergies/items", json={"item_ids": [71001, 71003]},
+                    headers=auth_headers)
+    assert r.status_code == 200
+    assert sorted(i["id"] for i in r.json()["allergy_items"]) == [71001, 71003]
+
+    r = client.post(f"{BASE}/allergies/items/delete", json={"item_ids": [71001]},
+                    headers=auth_headers)
+    assert [i["id"] for i in r.json()["allergy_items"]] == [71003]
+
+
+def test_add_allergy_item_twice_is_ignored(client, auth_headers, items):
+    for _ in range(2):
+        r = client.post(f"{BASE}/allergies/items", json={"item_ids": [71001]},
+                        headers=auth_headers)
+        assert r.status_code == 200
+    assert len(r.json()["allergy_items"]) == 1
+
+
+def test_add_allergy_unknown_item_returns_422(client, auth_headers, items):
+    r = client.post(f"{BASE}/allergies/items", json={"item_ids": [99999]},
+                    headers=auth_headers)
+    assert r.status_code == 422
+
+
+# ---------- Allergy labels ----------
+
+def test_add_labels_normalizes_and_dedupes(client, auth_headers):
+    r = client.post(f"{BASE}/allergies/labels",
+                    json={"labels": ["  Tree Nuts ", "tree nuts", "DAIRY"]},
+                    headers=auth_headers)
+    assert r.status_code == 200
+    assert r.json()["allergy_labels"] == ["dairy", "tree nuts"]  # sorted
+
+
+def test_add_unknown_label_returns_422(client, auth_headers):
+    r = client.post(f"{BASE}/allergies/labels", json={"labels": ["pollen"]},
+                    headers=auth_headers)
+    assert r.status_code == 422
+
+
+def test_delete_label(client, auth_headers):
+    client.post(f"{BASE}/allergies/labels", json={"labels": ["dairy", "soy"]},
+                headers=auth_headers)
+    r = client.post(f"{BASE}/allergies/labels/delete", json={"labels": ["dairy"]},
+                    headers=auth_headers)
+    assert r.json()["allergy_labels"] == ["soy"]
+
+
+# ---------- Isolation ----------
+
+def test_users_cannot_see_each_others_preferences(
+    client, auth_headers, other_auth_headers, items
+):
+    client.post(f"{BASE}/items", json={"preferences": [_pref(71001, "restricted")]},
+                headers=auth_headers)
+    client.post(f"{BASE}/allergies/labels", json={"labels": ["dairy"]},
+                headers=auth_headers)
+
+    r = client.get(BASE, headers=other_auth_headers)
+    assert r.json() == {
+        "preferred": [], "restricted": [], "allergy_items": [], "allergy_labels": []
+    }
