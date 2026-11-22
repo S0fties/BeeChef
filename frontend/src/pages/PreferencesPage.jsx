@@ -42,21 +42,33 @@ function PreferencesPage() {
   const [pending, setPending] = useState(() => new Set())
   const [addMode, setAddMode] = useState(null) // null | 'preferred' | 'restricted' | 'allergic'
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      setPrefs(await fetchPreferences())
+const [reloadKey, setReloadKey] = useState(0)
+useEffect(() => {
+  let active = true
+  fetchPreferences()
+    .then((data) => {
+      if (!active) return
+      setPrefs(data)
       setError('')
-    } catch (err) {
+    })
+    .catch((err) => {
+      if (!active) return
       setError(err.message || 'Could not load your preferences')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    })
+    .finally(() => {
+      if (active) setLoading(false)
+    })
+  return () => {
+    active = false
+  }
+}, [reloadKey])
 
-  useEffect(() => {
-    load()
-  }, [load])
+// Retry runs from a click handler, so setting state here is fine.
+const handleRetry = () => {
+  setLoading(true)
+  setError('')
+  setReloadKey((key) => key + 1)
+}
 
   // Runs one instant request; the server returns the full updated preferences.
   const runInstant = useCallback(async (key, action) => {
@@ -148,7 +160,7 @@ function PreferencesPage() {
       ) : !prefs ? (
         <button
           type="button"
-          onClick={load}
+          onClick={handleRetry}
           className="rounded-xl border border-[#d8dfd2] bg-white px-4 py-2 text-sm font-semibold text-[#36583b] hover:bg-[#f2f5ee]"
         >
           Try again
