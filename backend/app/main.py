@@ -11,7 +11,7 @@ from sqlalchemy import text
 
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, friends, households, inventory, invitations, items, media
+from app.api.routes import auth, friends, households, inventory, invitations, items, media, preferences
 from app.core.config import settings
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
@@ -55,7 +55,7 @@ app.include_router(households.router)
 app.include_router(invitations.router)
 app.include_router(friends.router)
 app.include_router(media.router)
-
+app.include_router(preferences.router)
 
 # FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
 @app.exception_handler(RequestValidationError)

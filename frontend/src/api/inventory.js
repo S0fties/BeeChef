@@ -1,5 +1,5 @@
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
-const API_V1_BASE = `${API_ORIGIN}/api/v1`
+export const API_V1_BASE = `${API_ORIGIN}/api/v1`
 const AUTH_BASE = `${API_V1_BASE}/auth`
 
 export const STORAGE_LOCATIONS = [
@@ -195,7 +195,7 @@ export async function quickAuthenticate({
   return data
 }
 
-async function fetchWithAuth(url, options = {}) {
+export async function fetchWithAuth(url, options = {}) {
   const response = await fetch(url, {
     ...options,
     headers: buildHeaders(options.headers),

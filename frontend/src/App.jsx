@@ -8,6 +8,7 @@ import InventoryPage from './pages/InventoryPage.jsx'
 import RecipeGeneratorPage from './pages/RecipeGeneratorPage.jsx'
 import ShoppingPage from './pages/ShoppingPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
+import PreferencesPage from './pages/PreferencesPage.jsx'
 
 const routes = [
   { path: '/recipes', navLabel: 'Recipe Generator', icon: Sparkles, component: RecipeGeneratorPage },
@@ -28,6 +29,7 @@ function App() {
           {routes.map(({ path, component: Page }) => (
             <Route key={path} path={path.slice(1)} element={<Page />} />
           ))}
+           <Route path="preferences" element={<PreferencesPage />} />
           <Route path="*" element={<Navigate to={routes[0].path} replace />} />
         </Route>
       </Route>

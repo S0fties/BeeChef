@@ -133,3 +133,9 @@ To keep Vitest running in watch mode during development:
 ```bash
 npm run test:watch
 ```
+
+### Mobil Test
+```bash
+backend/ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+frontend/ npm run dev -- --host
+```

@@ -12,6 +12,8 @@ from app.models.inventory_entry import InventoryEntry
 from app.models.invitation import Invitation, InvitationStatus
 from app.models.item import Item, ItemType
 from app.models.user import User
+from app.models.preferences import UserAllergyItem, UserAllergyLabel, UserItemPreference
+
 
 __all__ = [
     "Household",
@@ -25,4 +27,7 @@ __all__ = [
     "Item",
     "ItemType",
     "User",
+    "UserAllergyItem",
+    "UserAllergyLabel",
+    "UserItemPreference"
 ]
