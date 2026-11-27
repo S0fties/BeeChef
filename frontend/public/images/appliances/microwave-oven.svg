@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <defs>
+    <radialGradient id="mw-shadow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#111827" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mw-steel" x1="12" y1="26" x2="108" y2="94" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e5e7eb"/>
+      <stop offset="35%" stop-color="#d1d5db"/>
+      <stop offset="70%" stop-color="#9ca3af"/>
+      <stop offset="100%" stop-color="#6b7280"/>
+    </linearGradient>
+    <linearGradient id="mw-glass" x1="18" y1="34" x2="80" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#272d38"/>
+      <stop offset="50%" stop-color="#141820"/>
+      <stop offset="100%" stop-color="#0b0e14"/>
+    </linearGradient>
+    <radialGradient id="mw-glow" cx="50%" cy="62%" r="48%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.5"/>
+      <stop offset="70%" stop-color="#d97706" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#111827" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="mw-handle" x1="77" y1="38" x2="82" y2="82" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f9fafb"/>
+      <stop offset="50%" stop-color="#d1d5db"/>
+      <stop offset="100%" stop-color="#6b7280"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="60" cy="99" rx="48" ry="6" fill="url(#mw-shadow)"/>
+  <!-- Outer stainless-steel cabinet -->
+  <rect x="10" y="28" width="100" height="64" rx="5" fill="url(#mw-steel)" stroke="#6b7280" stroke-width="1"/>
+  <!-- Top edge highlight -->
+  <path d="M14 29.5H106" stroke="#ffffff" stroke-opacity="0.7" stroke-width="1.2" stroke-linecap="round"/>
+  <!-- Feet -->
+  <rect x="16" y="92" width="10" height="4" rx="1.5" fill="#1f2937"/>
+  <rect x="94" y="92" width="10" height="4" rx="1.5" fill="#1f2937"/>
+  <!-- Door frame -->
+  <rect x="14" y="33" width="70" height="54" rx="3" fill="#1f2937"/>
+  <!-- Glass viewing window -->
+  <rect x="19" y="38" width="54" height="44" rx="2.5" fill="url(#mw-glass)" stroke="#4b5563" stroke-width="0.8"/>
+  <!-- Warm interior glow & turntable silhouette -->
+  <rect x="19" y="38" width="54" height="44" rx="2.5" fill="url(#mw-glow)"/>
+  <ellipse cx="46" cy="76" rx="17" ry="2.5" fill="#fbbf24" fill-opacity="0.35"/>
+  <path d="M35 74C35 67 57 67 57 74Z" fill="#fde68a" fill-opacity="0.28"/>
+  <!-- Diagonal glass reflection -->
+  <path d="M22 40L37 40L22 62Z" fill="#ffffff" fill-opacity="0.1"/>
+  <path d="M41 40L47 40L26 70L22 70Z" fill="#ffffff" fill-opacity="0.06"/>
+  <!-- Metallic door handle -->
+  <rect x="77" y="39" width="4" height="42" rx="2" fill="url(#mw-handle)" stroke="#4b5563" stroke-width="0.6"/>
+  <!-- Control panel -->
+  <rect x="87" y="33" width="19" height="54" rx="2.5" fill="#111827"/>
+  <!-- Green LED clock -->
+  <rect x="89.5" y="37" width="14" height="8" rx="1.5" fill="#062c1c" stroke="#1f2937" stroke-width="0.6"/>
+  <text x="96.5" y="43" text-anchor="middle" fill="#4ade80" font-family="monospace" font-size="5.5" font-weight="bold">01:30</text>
+  <!-- Keypad buttons -->
+  <rect x="90" y="49" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="94.8" y="49" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="99.6" y="49" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="90" y="54" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="94.8" y="54" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="99.6" y="54" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="90" y="59" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="94.8" y="59" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <rect x="99.6" y="59" width="3.5" height="3" rx="0.6" fill="#374151"/>
+  <!-- Rotary dial / start button -->
+  <circle cx="96.5" cy="70" r="4.5" fill="url(#mw-steel)" stroke="#4b5563" stroke-width="0.8"/>
+  <circle cx="96.5" cy="70" r="2.2" fill="#1f2937"/>
+  <rect x="90" y="79" width="13" height="4.5" rx="1.2" fill="#22c55e"/>
+</svg>

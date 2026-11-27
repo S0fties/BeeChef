@@ -1,13 +1,13 @@
 import { memo, useState } from 'react'
 import { Check, CookingPot, Minus, Plus, Utensils } from 'lucide-react'
-import { getMealDbImageUrl } from '../../api/inventory.js'
+import { getItemImageUrl } from '../../api/inventory.js'
 
 function EditorItemTile({ item, unit, state, changed, onIncrement, onDecrement, onSetQuantity }) {
   const [imgFailed, setImgFailed] = useState(false)
   const isAppliance = item.item_type === 'appliance'
   const inStock = Boolean(state.is_available)
   const hasQuantity = state.quantity !== null && state.quantity !== undefined
-  const imageUrl = !isAppliance && !imgFailed ? getMealDbImageUrl(item.name, 'small') : null
+  const imageUrl = !imgFailed ? getItemImageUrl(item, 'small') : null
 
   return (
     <div

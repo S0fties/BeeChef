@@ -1,8 +1,8 @@
 import { getToken } from '../services/api.js'
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
-const API_V1_BASE = `${API_ORIGIN}/api/v1`
-const AUTH_BASE = `${API_ORIGIN}/auth`
+export const API_V1_BASE = `${API_ORIGIN}/api/v1`
+const AUTH_BASE = `${API_V1_BASE}/auth`
 
 export const STORAGE_LOCATIONS = [
   { value: 'fridge', label: 'Fridge' },
@@ -25,12 +25,62 @@ export const CATALOG_CATEGORIES = [
   { value: 'KITCHENWARE', label: 'Kitchenware', defaultSubcategory: 'COOKWARE', type: 'appliance' },
 ]
 
+export const APPLIANCE_IMAGE_MAP = {
+  'air fryer': '/images/appliances/air-fryer.svg',
+  'microwave oven': '/images/appliances/microwave-oven.svg',
+  toaster: '/images/appliances/toaster.svg',
+  oven: '/images/appliances/oven.svg',
+  stove: '/images/appliances/stove.svg',
+  'pressure cooker': '/images/appliances/pressure-cooker.svg',
+  'steel pot': '/images/appliances/steel-pot.svg',
+  'frying pan': '/images/appliances/frying-pan.svg',
+  'turkish coffee pot': '/images/appliances/turkish-coffee-pot.svg',
+  'hand blender': '/images/appliances/hand-blender.svg',
+  grater: '/images/appliances/grater.svg',
+  'cutting board': '/images/appliances/cutting-board.svg',
+}
+
+const APPLIANCE_IMAGE_KEYWORDS = [
+  { keywords: ['air fryer', 'airfryer'], src: '/images/appliances/air-fryer.svg' },
+  { keywords: ['microwave'], src: '/images/appliances/microwave-oven.svg' },
+  { keywords: ['cezve', 'coffee pot'], src: '/images/appliances/turkish-coffee-pot.svg' },
+  { keywords: ['toaster'], src: '/images/appliances/toaster.svg' },
+  { keywords: ['stove'], src: '/images/appliances/stove.svg' },
+  { keywords: ['oven'], src: '/images/appliances/oven.svg' },
+  { keywords: ['cooker'], src: '/images/appliances/pressure-cooker.svg' },
+  { keywords: ['pan', 'skillet'], src: '/images/appliances/frying-pan.svg' },
+  { keywords: ['pot'], src: '/images/appliances/steel-pot.svg' },
+  { keywords: ['blender'], src: '/images/appliances/hand-blender.svg' },
+  { keywords: ['grater'], src: '/images/appliances/grater.svg' },
+  { keywords: ['board'], src: '/images/appliances/cutting-board.svg' },
+]
+
+export function getApplianceImageUrl(itemName) {
+  if (!itemName) return null
+  const normalized = itemName.trim().toLowerCase()
+  if (APPLIANCE_IMAGE_MAP[normalized]) {
+    return APPLIANCE_IMAGE_MAP[normalized]
+  }
+  const match = APPLIANCE_IMAGE_KEYWORDS.find(({ keywords }) =>
+    keywords.some((keyword) => normalized.includes(keyword)),
+  )
+  return match ? match.src : null
+}
+
 export function getMealDbImageUrl(itemName, size = 'small') {
   if (!itemName) return null
   const encoded = encodeURIComponent(itemName.trim())
   return size === 'small'
     ? `https://www.themealdb.com/images/ingredients/${encoded}-small.png`
     : `https://www.themealdb.com/images/ingredients/${encoded}.png`
+}
+
+export function getItemImageUrl(item, size = 'small') {
+  if (!item || !item.name) return null
+  if (item.item_type === 'appliance') {
+    return getApplianceImageUrl(item.name)
+  }
+  return getMealDbImageUrl(item.name, size)
 }
 
 export function formatCategoryLabel(category) {
@@ -46,7 +96,7 @@ export function formatCategoryLabel(category) {
 // legacy demo-session key ("token") used by quickAuthenticate.
 export function getStoredToken() {
   try {
-    return getToken() || localStorage.getItem('token') || ''
+    return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
   } catch {
     return ''
   }
@@ -55,8 +105,9 @@ export function getStoredToken() {
 export function setStoredToken(token) {
   try {
     if (token) {
-      localStorage.setItem('token', token)
+      localStorage.setItem('access_token', token)
     } else {
+      localStorage.removeItem('access_token')
       localStorage.removeItem('token')
     }
   } catch {
@@ -117,7 +168,9 @@ function buildQuery(params = {}) {
 export async function quickAuthenticate({
   email = 'chef@beechef.com',
   password = 'beechef-demo-password',
-  full_name = 'BeeChef Demo User',
+  name = 'BeeChef',
+  surname = 'Demo',
+  user_name = 'beechef_demo',
 } = {}) {
   // Try logging in first; if user doesn't exist yet, register and then log in.
   let loginRes = await fetch(`${AUTH_BASE}/login`, {
@@ -130,7 +183,7 @@ export async function quickAuthenticate({
     await fetch(`${AUTH_BASE}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, full_name }),
+      body: JSON.stringify({ email, password, name, surname, user_name }),
     })
     loginRes = await fetch(`${AUTH_BASE}/login`, {
       method: 'POST',
@@ -146,34 +199,26 @@ export async function quickAuthenticate({
   return data
 }
 
-async function fetchWithAuth(url, options = {}) {
-  if (!getStoredToken()) {
-    try {
-      await quickAuthenticate()
-    } catch {
-      // Proceed and let handleResponse surface the status if auth endpoint fails
-    }
-  }
-
-  let response = await fetch(url, {
+export async function fetchWithAuth(url, options = {}) {
+  const response = await fetch(url, {
     ...options,
     headers: buildHeaders(options.headers),
   })
 
-  if (response.status === 401) {
-    setStoredToken('')
-    try {
-      await quickAuthenticate()
-      response = await fetch(url, {
-        ...options,
-        headers: buildHeaders(options.headers),
-      })
-    } catch {
-      // Keep original 401 response if re-auth fails
-    }
-  }
-
   return handleResponse(response)
+}
+
+export async function fetchUserHouseholds() {
+  return fetchWithAuth(`${API_V1_BASE}/households`, {
+    method: 'GET',
+  })
+}
+
+export async function createHousehold(payload) {
+  return fetchWithAuth(`${API_V1_BASE}/households`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
 }
 
 export async function fetchCatalogItems(params = {}) {
@@ -206,15 +251,17 @@ export async function createInventoryEntry(payload) {
   })
 }
 
-export async function updateInventoryEntry(entryId, payload) {
-  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}`, {
+export async function updateInventoryEntry(entryId, payload, params = {}) {
+  const query = buildQuery(params)
+  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}${query}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
 }
 
-export async function deleteInventoryEntry(entryId) {
-  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}`, {
+export async function deleteInventoryEntry(entryId, params = {}) {
+  const query = buildQuery(params)
+  return fetchWithAuth(`${API_V1_BASE}/inventory/${entryId}${query}`, {
     method: 'DELETE',
   })
 }

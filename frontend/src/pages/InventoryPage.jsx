@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  KeyRound,
+  CookingPot,
+  Home,
   Package,
   PackageX,
   Pencil,
@@ -12,11 +13,12 @@ import {
 import {
   CATALOG_CATEGORIES,
   STORAGE_LOCATIONS,
+  createHousehold,
   createInventoryEntry,
   deleteInventoryEntry,
   fetchInventoryEntries,
-  getStoredToken,
-  quickAuthenticate,
+  fetchUserHouseholds,
+  formatCategoryLabel,
   updateInventoryEntry,
 } from '../api/inventory.js'
 import DeleteInventoryModal from '../components/inventory/DeleteInventoryModal.jsx'
@@ -31,18 +33,89 @@ const TYPE_TABS = [
   { id: 'appliance', label: 'Appliances' },
 ]
 
+const CATEGORY_LABEL_MAP = new Map(CATALOG_CATEGORIES.map((c) => [c.value, c.label]))
+
+function sortEntriesForDisplay(entriesList) {
+  return [...entriesList].sort((a, b) => {
+    const availDiff = Number(Boolean(b.is_available)) - Number(Boolean(a.is_available))
+    if (availDiff !== 0) return availDiff
+    return (a.item?.name || '').localeCompare(b.item?.name || '')
+  })
+}
+
+function buildEntryGroups(entriesList, groupByMode) {
+  const grouped = new Map()
+  if (groupByMode === 'location') {
+    STORAGE_LOCATIONS.forEach((loc) =>
+      grouped.set(loc.value, { key: loc.value, label: loc.label, entries: [] }),
+    )
+    grouped.set('unassigned', {
+      key: 'unassigned',
+      label: 'Other / Unassigned',
+      entries: [],
+    })
+    entriesList.forEach((entry) => {
+      const locKey = (entry.location || '').toLowerCase()
+      const bucketKey = grouped.has(locKey) ? locKey : 'unassigned'
+      grouped.get(bucketKey).entries.push(entry)
+    })
+  } else {
+    CATALOG_CATEGORIES.forEach((cat) =>
+      grouped.set(cat.value, { key: cat.value, label: cat.label, entries: [] }),
+    )
+    entriesList.forEach((entry) => {
+      const catKey = entry.item?.category || 'OTHER'
+      if (!grouped.has(catKey)) {
+        grouped.set(catKey, {
+          key: catKey,
+          label: CATEGORY_LABEL_MAP.get(catKey) || formatCategoryLabel(catKey),
+          entries: [],
+        })
+      }
+      grouped.get(catKey).entries.push(entry)
+    })
+  }
+
+  return [...grouped.values()]
+    .filter((group) => group.entries.length > 0)
+    .map((group) => ({ ...group, entries: sortEntriesForDisplay(group.entries) }))
+}
+
+async function fetchHouseholdAndInventory(preferredHouseholdId = null) {
+  const householdList = await fetchUserHouseholds()
+  const normalizedHouseholds = Array.isArray(householdList) ? householdList : []
+  let resolvedId = null
+  if (normalizedHouseholds.length > 0) {
+    const hasPreferred =
+      preferredHouseholdId !== null &&
+      normalizedHouseholds.some((h) => h.id === preferredHouseholdId)
+    resolvedId = hasPreferred ? preferredHouseholdId : normalizedHouseholds[0].id
+  }
+  const entryList = await fetchInventoryEntries(
+    resolvedId !== null ? { household_id: resolvedId } : {},
+  )
+  return {
+    households: normalizedHouseholds,
+    householdId: resolvedId,
+    entries: Array.isArray(entryList) ? entryList : [],
+  }
+}
+
 function InventoryPage() {
   const [entries, setEntries] = useState([])
+  const [households, setHouseholds] = useState([])
+  const [activeHouseholdId, setActiveHouseholdId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [needsAuth, setNeedsAuth] = useState(false)
-  const [authenticating, setAuthenticating] = useState(false)
+  const [newHouseholdName, setNewHouseholdName] = useState('')
+  const [creatingHousehold, setCreatingHousehold] = useState(false)
 
-  // Filters
+  // Filters & grouping
   const [activeTab, setActiveTab] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLocation, setSelectedLocation] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
+  const [groupBy, setGroupBy] = useState('category')
 
   // Edit mode (in-page catalog editor) & modals
   const [isEditMode, setIsEditMode] = useState(false)
@@ -50,39 +123,40 @@ function InventoryPage() {
   const [deletingEntry, setDeletingEntry] = useState(null)
   const [isScanOpen, setIsScanOpen] = useState(false)
 
-  const loadInventory = useCallback(async () => {
-    try {
-      const data = await fetchInventoryEntries()
-      setEntries(Array.isArray(data) ? data : [])
-      setNeedsAuth(false)
-      setError('')
-    } catch (err) {
-      if (err.status === 401 || !getStoredToken()) {
-        setNeedsAuth(true)
-      } else {
+  const loadInventory = useCallback(
+    async (preferredHouseholdId = activeHouseholdId) => {
+      try {
+        const {
+          households: nextHouseholds,
+          householdId,
+          entries: nextEntries,
+        } = await fetchHouseholdAndInventory(preferredHouseholdId)
+        setHouseholds(nextHouseholds)
+        setActiveHouseholdId(householdId)
+        setEntries(nextEntries)
+        setError('')
+      } catch (err) {
         setError(err.message || 'Could not load household inventory')
+      } finally {
+        setLoading(false)
       }
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+    },
+    [activeHouseholdId],
+  )
 
   useEffect(() => {
     let active = true
-    fetchInventoryEntries()
-      .then((data) => {
+    fetchHouseholdAndInventory()
+      .then(({ households: nextHouseholds, householdId, entries: nextEntries }) => {
         if (!active) return
-        setEntries(Array.isArray(data) ? data : [])
-        setNeedsAuth(false)
+        setHouseholds(nextHouseholds)
+        setActiveHouseholdId(householdId)
+        setEntries(nextEntries)
         setError('')
       })
       .catch((err) => {
         if (!active) return
-        if (err.status === 401 || !getStoredToken()) {
-          setNeedsAuth(true)
-        } else {
-          setError(err.message || 'Could not load household inventory')
-        }
+        setError(err.message || 'Could not load household inventory')
       })
       .finally(() => {
         if (active) {
@@ -96,29 +170,62 @@ function InventoryPage() {
 
   const handleRefresh = async () => {
     setLoading(true)
-    await loadInventory()
+    await loadInventory(activeHouseholdId)
   }
 
-  const handleQuickDemoSession = async () => {
-    setAuthenticating(true)
+  const handleSelectHousehold = async (e) => {
+    const nextId = Number(e.target.value)
+    setActiveHouseholdId(nextId)
+    setIsEditMode(false)
+    setLoading(true)
     setError('')
     try {
-      await quickAuthenticate()
-      await loadInventory()
+      const data = await fetchInventoryEntries({ household_id: nextId })
+      setEntries(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError(err.message || 'Failed to start demo session')
+      setError(err.message || 'Could not load household inventory')
     } finally {
-      setAuthenticating(false)
+      setLoading(false)
+    }
+  }
+
+  const handleCreateHousehold = async (e) => {
+    e.preventDefault()
+    setCreatingHousehold(true)
+    setError('')
+    try {
+      const created = await createHousehold({
+        name: newHouseholdName.trim() || 'My Household',
+      })
+      setNewHouseholdName('')
+      setHouseholds([created])
+      setActiveHouseholdId(created.id)
+      const data = await fetchInventoryEntries({ household_id: created.id })
+      setEntries(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setError(err.message || 'Could not create household')
+    } finally {
+      setCreatingHousehold(false)
     }
   }
 
   // Applies all staged edit-mode changes, then reloads the inventory from the API.
   const handleCommitChanges = async ({ creates, updates }) => {
+    const householdParams =
+      activeHouseholdId !== null ? { household_id: activeHouseholdId } : {}
     const results = await Promise.allSettled([
-      ...creates.map((payload) => createInventoryEntry(payload)),
-      ...updates.map(({ id, payload }) => updateInventoryEntry(id, payload)),
+      ...creates.map((payload) =>
+        createInventoryEntry(
+          activeHouseholdId !== null
+            ? { ...payload, household_id: activeHouseholdId }
+            : payload,
+        ),
+      ),
+      ...updates.map(({ id, payload }) =>
+        updateInventoryEntry(id, payload, householdParams),
+      ),
     ])
-    await loadInventory()
+    await loadInventory(activeHouseholdId)
     const failed = results.filter((r) => r.status === 'rejected')
     if (failed.length > 0) {
       throw new Error(
@@ -128,7 +235,9 @@ function InventoryPage() {
   }
 
   const handleUpdateEntry = async (entryId, payload) => {
-    const updated = await updateInventoryEntry(entryId, payload)
+    const householdParams =
+      activeHouseholdId !== null ? { household_id: activeHouseholdId } : {}
+    const updated = await updateInventoryEntry(entryId, payload, householdParams)
     setEntries((prev) =>
       prev.map((entry) => (entry.id === entryId ? updated : entry)),
     )
@@ -143,7 +252,9 @@ function InventoryPage() {
   }
 
   const handleDeleteEntry = async (entryId) => {
-    await deleteInventoryEntry(entryId)
+    const householdParams =
+      activeHouseholdId !== null ? { household_id: activeHouseholdId } : {}
+    await deleteInventoryEntry(entryId, householdParams)
     setEntries((prev) => prev.filter((entry) => entry.id !== entryId))
   }
 
@@ -169,6 +280,26 @@ function InventoryPage() {
     })
   }, [entries, activeTab, selectedLocation, selectedCategory, searchQuery])
 
+  const ingredientEntries = useMemo(
+    () => filteredEntries.filter((entry) => entry.item?.item_type !== 'appliance'),
+    [filteredEntries],
+  )
+
+  const applianceEntries = useMemo(
+    () => filteredEntries.filter((entry) => entry.item?.item_type === 'appliance'),
+    [filteredEntries],
+  )
+
+  const ingredientGroups = useMemo(
+    () => buildEntryGroups(ingredientEntries, groupBy),
+    [ingredientEntries, groupBy],
+  )
+
+  const sortedAppliances = useMemo(
+    () => sortEntriesForDisplay(applianceEntries),
+    [applianceEntries],
+  )
+
   const outOfStockNames = useMemo(
     () =>
       entries
@@ -177,6 +308,10 @@ function InventoryPage() {
         .sort((a, b) => a.localeCompare(b)),
     [entries],
   )
+
+  const hasNoHousehold = !loading && households.length === 0 && entries.length === 0
+  const activeHousehold =
+    households.find((h) => h.id === activeHouseholdId) || households[0] || null
 
   return (
     <section className="w-full space-y-6">
@@ -189,6 +324,33 @@ function InventoryPage() {
           <p className="m-0 mt-1 text-sm text-[#636b5f]">
             Manage your household pantry ingredients and kitchen appliances
           </p>
+          {households.length === 1 && activeHousehold && (
+            <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#dce4d5] bg-[#f4f7f0] px-3 py-1 text-xs font-medium text-[#253b2d]">
+              <Home className="h-3.5 w-3.5 text-[#36583b]" aria-hidden="true" />
+              <span>{activeHousehold.name}</span>
+              <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#5d6659]">
+                {activeHousehold.role}
+              </span>
+            </div>
+          )}
+          {households.length > 1 && (
+            <div className="mt-2 flex items-center gap-2">
+              <Home className="h-4 w-4 text-[#36583b]" aria-hidden="true" />
+              <select
+                aria-label="Select household"
+                value={activeHouseholdId ?? ''}
+                onChange={handleSelectHousehold}
+                disabled={isEditMode}
+                className="rounded-xl border border-[#d8dfd2] bg-white px-3 py-1.5 text-xs font-semibold text-[#253b2d] focus:border-[#36583b] focus:outline-none disabled:opacity-60"
+              >
+                {households.map((household) => (
+                  <option key={household.id} value={household.id}>
+                    {household.name} ({household.role})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {!isEditMode && (
@@ -214,7 +376,7 @@ function InventoryPage() {
             <button
               type="button"
               onClick={() => setIsEditMode(true)}
-              disabled={needsAuth}
+              disabled={loading || hasNoHousehold}
               className="inline-flex items-center gap-2 rounded-xl bg-[#36583b] px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#2a462e] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Pencil className="h-4 w-4" />
@@ -249,34 +411,6 @@ function InventoryPage() {
         </div>
       )}
 
-      {/* Standalone Auth Helper Banner when no JWT token is present */}
-      {needsAuth && (
-        <div className="flex flex-col items-start justify-between gap-3 rounded-2xl border border-[#dce4d5] bg-[#f4f7f0] p-4 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#36583b] text-white">
-              <KeyRound className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="m-0 text-sm font-bold text-[#253b2d]">
-                Authentication Required
-              </h2>
-              <p className="m-0 text-xs text-[#5d6659]">
-                Sign in or start a quick demo household session to view and manage your
-                pantry inventory.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            disabled={authenticating}
-            onClick={handleQuickDemoSession}
-            className="shrink-0 rounded-xl bg-[#36583b] px-4 py-2 text-xs font-semibold text-white hover:bg-[#2a462e] disabled:opacity-50"
-          >
-            {authenticating ? 'Starting Session...' : 'Start Quick Household Session'}
-          </button>
-        </div>
-      )}
-
       {/* Error Alert */}
       {error && (
         <div
@@ -287,7 +421,41 @@ function InventoryPage() {
         </div>
       )}
 
-      {isEditMode ? (
+      {hasNoHousehold ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-[#dce4d5] bg-white px-6 py-12 text-center shadow-2xs">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#edf2e8] text-[#36583b]">
+            <Home className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <h2 className="m-0 mt-3 text-lg font-bold text-[#253b2d]">
+            No Household Found
+          </h2>
+          <p className="m-0 mt-1 max-w-md text-xs text-[#5d6659]">
+            Create a household to manage your inventory, track ingredients, and share your kitchen pantry.
+          </p>
+          <form
+            onSubmit={handleCreateHousehold}
+            className="mt-5 flex w-full max-w-sm flex-col gap-2.5 sm:flex-row"
+          >
+            <input
+              type="text"
+              value={newHouseholdName}
+              onChange={(e) => setNewHouseholdName(e.target.value)}
+              aria-label="Household name"
+              placeholder="e.g. My Home Kitchen"
+              maxLength={100}
+              className="flex-1 rounded-xl border border-[#d8dfd2] bg-[#fafbf8] px-3.5 py-2 text-sm text-[#253b2d] placeholder:text-[#8c9187] focus:border-[#36583b] focus:bg-white focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={creatingHousehold}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-[#36583b] px-4 py-2 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-[#2a462e] disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              <span>{creatingHousehold ? 'Creating...' : 'Create Household'}</span>
+            </button>
+          </form>
+        </div>
+      ) : isEditMode ? (
         <InventoryEditor
           entries={entries}
           onCommit={handleCommitChanges}
@@ -355,37 +523,69 @@ function InventoryPage() {
           </div>
         </div>
 
-        {/* Storage Location Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-          <span className="mr-1 text-xs font-semibold text-[#697065]">Location:</span>
-          <button
-            type="button"
-            onClick={() => setSelectedLocation('')}
-            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-              selectedLocation === ''
-                ? 'bg-[#36583b] text-white'
-                : 'bg-[#f3f5ef] text-[#5c6558] hover:bg-[#e7ece1]'
-            }`}
-          >
-            All Locations
-          </button>
-          {STORAGE_LOCATIONS.map((loc) => {
-            const active = selectedLocation === loc.value
-            return (
+        {/* Storage Location Filter Pills & Group By Toggle */}
+        <div className="flex flex-col gap-2.5 pt-1 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-xs font-semibold text-[#697065]">Location:</span>
+            <button
+              type="button"
+              onClick={() => setSelectedLocation('')}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                selectedLocation === ''
+                  ? 'bg-[#36583b] text-white'
+                  : 'bg-[#f3f5ef] text-[#5c6558] hover:bg-[#e7ece1]'
+              }`}
+            >
+              All Locations
+            </button>
+            {STORAGE_LOCATIONS.map((loc) => {
+              const active = selectedLocation === loc.value
+              return (
+                <button
+                  key={loc.value}
+                  type="button"
+                  onClick={() => setSelectedLocation(active ? '' : loc.value)}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    active
+                      ? 'bg-[#36583b] text-white'
+                      : 'bg-[#f3f5ef] text-[#5c6558] hover:bg-[#e7ece1]'
+                  }`}
+                >
+                  {loc.label}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-1.5 self-start sm:self-auto">
+            <span className="text-xs font-semibold text-[#697065]">Group by:</span>
+            <div className="inline-flex rounded-lg bg-[#f3f5ef] p-0.5">
               <button
-                key={loc.value}
                 type="button"
-                onClick={() => setSelectedLocation(active ? '' : loc.value)}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                  active
-                    ? 'bg-[#36583b] text-white'
-                    : 'bg-[#f3f5ef] text-[#5c6558] hover:bg-[#e7ece1]'
+                aria-pressed={groupBy === 'category'}
+                onClick={() => setGroupBy('category')}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  groupBy === 'category'
+                    ? 'bg-white text-[#253b2d] shadow-2xs'
+                    : 'text-[#666e62] hover:text-[#253b2d]'
                 }`}
               >
-                {loc.label}
+                By Category
               </button>
-            )
-          })}
+              <button
+                type="button"
+                aria-pressed={groupBy === 'location'}
+                onClick={() => setGroupBy('location')}
+                className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors ${
+                  groupBy === 'location'
+                    ? 'bg-white text-[#253b2d] shadow-2xs'
+                    : 'text-[#666e62] hover:text-[#253b2d]'
+                }`}
+              >
+                By Location
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -424,16 +624,73 @@ function InventoryPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredEntries.map((entry) => (
-            <InventoryItemCard
-              key={entry.id}
-              entry={entry}
-              onEdit={setEditingEntry}
-              onDelete={setDeletingEntry}
-              onQuickUpdate={handleQuickUpdate}
-            />
+        <div className="space-y-6">
+          {ingredientGroups.map((group) => (
+            <div key={group.key} data-testid={`inventory-group-${group.key}`}>
+              <div className="mb-2.5 flex items-center justify-between border-b border-[#e6ebe1] pb-1.5">
+                <h2 className="m-0 text-sm font-bold tracking-tight text-[#253b2d]">
+                  {group.label}
+                </h2>
+                <span className="rounded-full bg-[#eef2e8] px-2.5 py-0.5 text-[11px] font-semibold text-[#36583b]">
+                  {group.entries.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {group.entries.map((entry) => (
+                  <InventoryItemCard
+                    key={entry.id}
+                    entry={entry}
+                    groupBy={groupBy}
+                    onEdit={setEditingEntry}
+                    onDelete={setDeletingEntry}
+                    onQuickUpdate={handleQuickUpdate}
+                  />
+                ))}
+              </div>
+            </div>
           ))}
+
+          {sortedAppliances.length > 0 && (
+            <div
+              data-testid="appliances-section"
+              className={
+                ingredientEntries.length > 0
+                  ? 'border-t-2 border-dashed border-[#dce4d5] pt-6'
+                  : ''
+              }
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#e8eff7] text-[#2c527a]">
+                    <CookingPot className="h-4 w-4" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h2 className="m-0 text-sm font-bold tracking-tight text-[#253b2d]">
+                      Kitchen Appliances &amp; Tools
+                    </h2>
+                    <p className="m-0 text-[11px] text-[#697065]">
+                      Cooking appliances and kitchenware available in your home
+                    </p>
+                  </div>
+                </div>
+                <span className="rounded-full bg-[#e8eff7] px-2.5 py-0.5 text-[11px] font-semibold text-[#2c527a]">
+                  {sortedAppliances.length}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                {sortedAppliances.map((entry) => (
+                  <InventoryItemCard
+                    key={entry.id}
+                    entry={entry}
+                    groupBy={groupBy}
+                    onEdit={setEditingEntry}
+                    onDelete={setDeletingEntry}
+                    onQuickUpdate={handleQuickUpdate}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
       </>

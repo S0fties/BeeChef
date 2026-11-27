@@ -60,17 +60,58 @@ const INITIAL_INVENTORY = [
   },
 ]
 
-function mockFetchImplementation(inventoryState) {
+const DEFAULT_HOUSEHOLDS = [
+  {
+    id: 10,
+    name: 'BeeChef House',
+    role: 'owner',
+    created_at: '2026-11-01T10:00:00Z',
+  },
+]
+
+function mockFetchImplementation(inventoryState, householdsState = structuredClone(DEFAULT_HOUSEHOLDS)) {
   return vi.fn(async (url, options = {}) => {
     const method = (options.method || 'GET').toUpperCase()
     const urlStr = String(url)
 
-    // GET /api/v1/inventory
-    if (urlStr.includes('/api/v1/inventory') && method === 'GET') {
+    // GET /api/v1/households
+    if (urlStr.endsWith('/api/v1/households') && method === 'GET') {
       return {
         ok: true,
         status: 200,
-        json: async () => [...inventoryState],
+        json: async () => [...householdsState],
+      }
+    }
+
+    // POST /api/v1/households
+    if (urlStr.endsWith('/api/v1/households') && method === 'POST') {
+      const body = JSON.parse(options.body)
+      const created = {
+        id: 20 + householdsState.length,
+        name: body.name,
+        role: 'owner',
+        created_at: '2026-11-02T10:00:00Z',
+      }
+      householdsState.push(created)
+      return {
+        ok: true,
+        status: 201,
+        json: async () => created,
+      }
+    }
+
+    // GET /api/v1/inventory
+    if (urlStr.includes('/api/v1/inventory') && method === 'GET') {
+      const queryPart = urlStr.split('?')[1] || ''
+      const params = new URLSearchParams(queryPart)
+      const requestedHouseholdId = params.get('household_id')
+      const filtered = requestedHouseholdId
+        ? inventoryState.filter((e) => e.household_id === Number(requestedHouseholdId))
+        : [...inventoryState]
+      return {
+        ok: true,
+        status: 200,
+        json: async () => filtered,
       }
     }
 
@@ -89,7 +130,7 @@ function mockFetchImplementation(inventoryState) {
       const catalogItem = SAMPLE_CATALOG.find((c) => c.id === body.item_id)
       const created = {
         id: 99,
-        household_id: 10,
+        household_id: body.household_id || 10,
         item_id: body.item_id,
         is_available: body.is_available,
         quantity: body.quantity,
@@ -109,7 +150,7 @@ function mockFetchImplementation(inventoryState) {
 
     // PATCH /api/v1/inventory/:id
     if (urlStr.includes('/api/v1/inventory/') && method === 'PATCH') {
-      const id = Number(urlStr.split('/api/v1/inventory/')[1])
+      const id = Number(urlStr.split('/api/v1/inventory/')[1].split('?')[0])
       const body = JSON.parse(options.body)
       const idx = inventoryState.findIndex((e) => e.id === id)
       const updated = {
@@ -126,7 +167,7 @@ function mockFetchImplementation(inventoryState) {
 
     // DELETE /api/v1/inventory/:id
     if (urlStr.includes('/api/v1/inventory/') && method === 'DELETE') {
-      const id = Number(urlStr.split('/api/v1/inventory/')[1])
+      const id = Number(urlStr.split('/api/v1/inventory/')[1].split('?')[0])
       const idx = inventoryState.findIndex((e) => e.id === id)
       if (idx !== -1) inventoryState.splice(idx, 1)
       return {
@@ -146,7 +187,8 @@ function mockFetchImplementation(inventoryState) {
 
 describe('InventoryPage UI and API integration', () => {
   beforeEach(() => {
-    localStorage.setItem('token', 'fake-jwt-token')
+    localStorage.clear()
+    localStorage.setItem('access_token', 'fake-jwt-token')
   })
 
   it('renders existing inventory items and filters by type, search, and location', async () => {
@@ -413,6 +455,143 @@ describe('InventoryPage UI and API integration', () => {
     await waitFor(() => {
       expect(screen.queryByText('Tomatoes')).not.toBeInTheDocument()
     })
+  })
+
+  it('shows household creation onboarding when user has no household and creates one', async () => {
+    const user = userEvent.setup()
+    const fetchMock = mockFetchImplementation([], [])
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<InventoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('No Household Found')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /Edit Inventory/i })).toBeDisabled()
+
+    await user.type(screen.getByLabelText('Household name'), 'My Cozy Kitchen')
+    await user.click(screen.getByRole('button', { name: 'Create Household' }))
+
+    await waitFor(() => {
+      expect(screen.getByText('My Cozy Kitchen')).toBeInTheDocument()
+      expect(screen.getByText('Your pantry inventory is empty')).toBeInTheDocument()
+    })
+    expect(screen.getByRole('button', { name: /Edit Inventory/i })).toBeEnabled()
+
+    const createHouseholdCall = fetchMock.mock.calls.find(
+      ([url, opts]) => String(url).endsWith('/api/v1/households') && opts?.method === 'POST',
+    )
+    expect(createHouseholdCall).toBeDefined()
+    expect(JSON.parse(createHouseholdCall[1].body)).toEqual({ name: 'My Cozy Kitchen' })
+  })
+
+  it('allows switching between multiple households and reloads inventory', async () => {
+    const user = userEvent.setup()
+    const households = [
+      { id: 10, name: 'Main House', role: 'owner', created_at: '2026-11-01T10:00:00Z' },
+      { id: 20, name: 'Summer Flat', role: 'member', created_at: '2026-11-02T10:00:00Z' },
+    ]
+    const state = [
+      ...structuredClone(INITIAL_INVENTORY),
+      {
+        id: 3,
+        household_id: 20,
+        item_id: 41001,
+        is_available: true,
+        quantity: 1000,
+        unit: 'ml',
+        location: 'fridge',
+        created_at: '2026-11-02T10:00:00Z',
+        updated_at: '2026-11-02T10:00:00Z',
+        item: SAMPLE_CATALOG[1],
+      },
+    ]
+    const fetchMock = mockFetchImplementation(state, households)
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<InventoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Tomatoes')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Milk')).not.toBeInTheDocument()
+
+    const select = screen.getByLabelText('Select household')
+    await user.selectOptions(select, '20')
+
+    await waitFor(() => {
+      expect(screen.getByText('Milk')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Tomatoes')).not.toBeInTheDocument()
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/api/v1/inventory?household_id=20')),
+    ).toBe(true)
+  })
+
+  it('groups ingredients by category or location and keeps appliances in a bottom section', async () => {
+    const user = userEvent.setup()
+    const lemonItem = {
+      id: 11001,
+      name: 'Lemon',
+      item_type: 'ingredient',
+      category: 'FRUIT',
+      subcategory: 'CITRUS',
+      default_unit: 'piece',
+      created_at: '2026-11-01T10:00:00Z',
+    }
+    const state = [
+      ...structuredClone(INITIAL_INVENTORY),
+      {
+        id: 3,
+        household_id: 10,
+        item_id: 11001,
+        is_available: true,
+        quantity: 4,
+        unit: 'piece',
+        location: 'counter',
+        created_at: '2026-11-01T10:00:00Z',
+        updated_at: '2026-11-01T10:00:00Z',
+        item: lemonItem,
+      },
+    ]
+    vi.stubGlobal('fetch', mockFetchImplementation(state))
+
+    render(<InventoryPage />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Tomatoes')).toBeInTheDocument()
+      expect(screen.getByText('Lemon')).toBeInTheDocument()
+    })
+
+    // Default grouping: By Category for ingredients, Appliances separated at bottom
+    const fruitGroup = screen.getByTestId('inventory-group-FRUIT')
+    expect(within(fruitGroup).getByRole('heading', { name: 'Fruit' })).toBeInTheDocument()
+    expect(within(fruitGroup).getByText('Lemon')).toBeInTheDocument()
+
+    const vegGroup = screen.getByTestId('inventory-group-VEGETABLE')
+    expect(within(vegGroup).getByRole('heading', { name: 'Vegetable' })).toBeInTheDocument()
+    expect(within(vegGroup).getByText('Tomatoes')).toBeInTheDocument()
+    expect(within(vegGroup).queryByText('Air Fryer')).not.toBeInTheDocument()
+
+    const appliancesSection = screen.getByTestId('appliances-section')
+    expect(
+      within(appliancesSection).getByRole('heading', { name: /Kitchen Appliances & Tools/i }),
+    ).toBeInTheDocument()
+    expect(within(appliancesSection).getByText('Air Fryer')).toBeInTheDocument()
+    const airFryerImg = within(appliancesSection).getByRole('img', { name: 'Air Fryer' })
+    expect(airFryerImg).toHaveAttribute('src', '/images/appliances/air-fryer.svg')
+
+    // Switch to By Location grouping
+    await user.click(screen.getByRole('button', { name: 'By Location' }))
+
+    const fridgeGroup = screen.getByTestId('inventory-group-fridge')
+    expect(within(fridgeGroup).getByRole('heading', { name: 'Fridge' })).toBeInTheDocument()
+    expect(within(fridgeGroup).getByText('Tomatoes')).toBeInTheDocument()
+
+    const counterGroup = screen.getByTestId('inventory-group-counter')
+    expect(within(counterGroup).getByRole('heading', { name: 'Counter' })).toBeInTheDocument()
+    expect(within(counterGroup).getByText('Lemon')).toBeInTheDocument()
+    expect(within(counterGroup).queryByText('Air Fryer')).not.toBeInTheDocument()
   })
 })
 
