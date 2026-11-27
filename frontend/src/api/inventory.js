@@ -90,6 +90,8 @@ export function formatCategoryLabel(category) {
     .join(' ')
 }
 
+// Prefer the real login token ("access_token", set by AuthContext); fall back to the
+// legacy demo-session key ("token") used by quickAuthenticate.
 export function getStoredToken() {
   try {
     return localStorage.getItem('access_token') || localStorage.getItem('token') || ''

@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import asyncio
 import logging
 
 from fastapi import FastAPI, Depends, HTTPException, status, Request
@@ -11,12 +12,25 @@ from sqlalchemy import text
 
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import auth, friends, households, inventory, invitations, items, media, preferences
+from app.api.routes import auth, friends, households, inventory, invitations, items, media, preferences, receipts
 from app.core.config import settings
 from app.db.seed import seed_items_catalog
 from app.db.session import SessionLocal, get_db
+from app.services.receipt_storage import receipt_storage
 
 logger = logging.getLogger(__name__)
+
+RECEIPT_PURGE_INTERVAL_SECONDS = 15 * 60
+
+
+async def _purge_receipts_periodically():
+    """Delete receipt images whose scan flow was abandoned (UC-13)."""
+    while True:
+        try:
+            receipt_storage.purge_expired()
+        except Exception as exc:
+            logger.warning("Receipt cleanup failed: %s", exc)
+        await asyncio.sleep(RECEIPT_PURGE_INTERVAL_SECONDS)
 
 
 @asynccontextmanager
@@ -28,7 +42,9 @@ async def lifespan(app: FastAPI):
         logger.warning("Skipping automatic catalog seeding on startup: %s", exc)
     finally:
         db.close()
+    purge_task = asyncio.create_task(_purge_receipts_periodically())
     yield
+    purge_task.cancel()
 
 
 app = FastAPI(title="BeeChef API", lifespan=lifespan)
@@ -55,7 +71,9 @@ app.include_router(households.router)
 app.include_router(invitations.router)
 app.include_router(friends.router)
 app.include_router(media.router)
+app.include_router(receipts.router)
 app.include_router(preferences.router)
+
 
 # FastAPI returns 422 by default; the acceptance criteria want 400 for invalid input.
 @app.exception_handler(RequestValidationError)

@@ -6,6 +6,7 @@ import {
   PackageX,
   Pencil,
   Plus,
+  Receipt,
   RefreshCw,
   Search,
 } from 'lucide-react'
@@ -24,6 +25,7 @@ import DeleteInventoryModal from '../components/inventory/DeleteInventoryModal.j
 import EditInventoryModal from '../components/inventory/EditInventoryModal.jsx'
 import InventoryEditor from '../components/inventory/InventoryEditor.jsx'
 import InventoryItemCard from '../components/inventory/InventoryItemCard.jsx'
+import ReceiptScanModal from '../components/inventory/ReceiptScanModal.jsx'
 
 const TYPE_TABS = [
   { id: 'all', label: 'All Items' },
@@ -119,6 +121,7 @@ function InventoryPage() {
   const [isEditMode, setIsEditMode] = useState(false)
   const [editingEntry, setEditingEntry] = useState(null)
   const [deletingEntry, setDeletingEntry] = useState(null)
+  const [isScanOpen, setIsScanOpen] = useState(false)
 
   const loadInventory = useCallback(
     async (preferredHouseholdId = activeHouseholdId) => {
@@ -351,7 +354,7 @@ function InventoryPage() {
         </div>
 
         {!isEditMode && (
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={handleRefresh}
@@ -360,6 +363,15 @@ function InventoryPage() {
             >
               <RefreshCw className="h-4 w-4" />
               <span>Refresh</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsScanOpen(true)}
+              disabled={loading || hasNoHousehold}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#d8dfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#36583b] transition-colors hover:bg-[#f2f5ee] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Receipt className="h-4 w-4" />
+              <span>Scan Receipt</span>
             </button>
             <button
               type="button"
@@ -701,6 +713,13 @@ function InventoryPage() {
           entry={deletingEntry}
           onClose={() => setDeletingEntry(null)}
           onConfirmDelete={handleDeleteEntry}
+        />
+      )}
+
+      {isScanOpen && (
+        <ReceiptScanModal
+          onClose={() => setIsScanOpen(false)}
+          onItemsAdded={() => loadInventory()}
         />
       )}
     </section>
