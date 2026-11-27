@@ -367,7 +367,7 @@ function InventoryPage() {
             <button
               type="button"
               onClick={() => setIsScanOpen(true)}
-              disabled={needsAuth}
+              disabled={loading || hasNoHousehold}
               className="inline-flex items-center gap-1.5 rounded-xl border border-[#d8dfd2] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#36583b] transition-colors hover:bg-[#f2f5ee] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Receipt className="h-4 w-4" />

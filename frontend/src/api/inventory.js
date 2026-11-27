@@ -1,5 +1,3 @@
-import { getToken } from '../services/api.js'
-
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '')
 export const API_V1_BASE = `${API_ORIGIN}/api/v1`
 const AUTH_BASE = `${API_V1_BASE}/auth`
